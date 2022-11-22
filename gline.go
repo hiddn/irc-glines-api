@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"math"
 	"net"
 	"time"
@@ -68,4 +70,39 @@ func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64)
 		expireTS:  expireTS,
 		//TTL:       TTL,
 	}
+}
+
+func (s *serverData) CheckGline(ip string) ([]*glineData, error) {
+	// request networks containing this IP
+	entries, err := s.cranger.ContainingNetworks(net.ParseIP(ip))
+	ret_entries := make([]*glineData, 0, len(entries))
+	/*if err != nil {
+		fmt.Println("ranger.ContainingNetworks()", err.Error())
+		os.Exit(1)
+	}*/
+
+	//TODO: Remove the lines below, which is there for debug purposes only
+	fmt.Printf("Entries for %s:\n", ip)
+	for _, e := range entries {
+
+		// Cast e (cidranger.RangerEntry to struct glineData
+		entry, ok := e.(*glineData)
+		if !ok {
+			log.Fatalln("This shouldn't have happened")
+			continue
+		}
+		if entry.IsGlineActive() {
+			ret_entries = append(ret_entries, entry)
+		}
+
+		// Get network (converted to string by function)
+		n := entry.NetworkStr()
+
+		// Get mask
+		mask := entry.Mask()
+
+		// Display
+		fmt.Println("\t", n, mask)
+	}
+	return ret_entries, err
 }
