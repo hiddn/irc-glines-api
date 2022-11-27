@@ -16,6 +16,7 @@ type glineData struct {
 	mask      string
 	expireTS  int64
 	lastModTS int64
+	active    bool
 	//TTL       int64
 }
 
@@ -51,31 +52,45 @@ func (g *glineData) ExpireTS() int64 {
 	return g.expireTS
 }
 
+func (g *glineData) LastModTS() int64 {
+	return g.lastModTS
+}
+
 func (g *glineData) HoursUntilExpiration() int64 {
 	// If the gline expires in 1 hour and 1 second, this function will return 2
 	return int64(math.Ceil(float64((g.ExpireTS() - time.Now().Unix())) / 3600.0))
 }
 
+func (g *glineData) HoursSinceLastMod() int64 {
+	// If the gline expires in 1 hour and 1 second, this function will return 2
+	return int64(math.Ceil(float64((g.LastModTS() - time.Now().Unix())) / 3600.0))
+}
+
 func (g *glineData) IsGlineActive() bool {
-	return (g.ExpireTS() > int64(time.Now().Unix()))
+	return g.active && (g.ExpireTS() > int64(time.Now().Unix()))
 }
 
 // create customRangerEntry object using net and asn
-func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64) cidranger.RangerEntry {
+func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64, active bool) cidranger.RangerEntry {
 	return &glineData{
 		ipNet:     ipNet,
 		user:      user,
 		mask:      mask,
 		lastModTS: lastModTS,
 		expireTS:  expireTS,
+		active:    active,
 		//TTL:       TTL,
 	}
 }
 
-func (s *serverData) CheckGline(ip string) ([]*glineData, error) {
+// This method accepts an IP as parameter and returns two lists:
+// active glines and expired/deactivated glines.
+// An error is returned if the IP is invalid
+func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
 	// request networks containing this IP
 	entries, err := s.cranger.ContainingNetworks(net.ParseIP(ip))
-	ret_entries := make([]*glineData, 0, len(entries))
+	activeGlines := make([]*glineData, 0, len(entries))
+	inactiveGlines := make([]*glineData, 0, len(entries))
 	/*if err != nil {
 		fmt.Println("ranger.ContainingNetworks()", err.Error())
 		os.Exit(1)
@@ -92,7 +107,9 @@ func (s *serverData) CheckGline(ip string) ([]*glineData, error) {
 			continue
 		}
 		if entry.IsGlineActive() {
-			ret_entries = append(ret_entries, entry)
+			activeGlines = append(activeGlines, entry)
+		} else {
+			inactiveGlines = append(inactiveGlines, entry)
 		}
 
 		// Get network (converted to string by function)
@@ -104,5 +121,5 @@ func (s *serverData) CheckGline(ip string) ([]*glineData, error) {
 		// Display
 		fmt.Println("\t", n, mask)
 	}
-	return ret_entries, err
+	return activeGlines, inactiveGlines, err
 }

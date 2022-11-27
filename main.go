@@ -127,11 +127,17 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 			s.conn.Raw(str)
 			return
 		}
-		if glines, err := s.CheckGline(w[4]); err == nil {
+		if glines, exp_glines, err := s.CheckGline(w[4]); err == nil {
 			str_slices := make([]string, 0, len(glines))
 			for _, entry := range glines {
 				mask := entry.Mask()
 				tmpStr := fmt.Sprintf("%s (expires in <%d hours)", mask, entry.HoursUntilExpiration())
+				str_slices = append(str_slices, tmpStr)
+				s.conn.Raw(tmpStr)
+			}
+			for _, entry := range exp_glines {
+				mask := entry.Mask()
+				tmpStr := fmt.Sprintf("EXPIRED: %s (lastmod %d hours)", mask, entry.HoursSinceLastMod())
 				str_slices = append(str_slices, tmpStr)
 				s.conn.Raw(tmpStr)
 			}
@@ -176,9 +182,12 @@ func handleGline280(conn *irc.Conn, line *irc.Line) {
 	mask_l := strings.Split(mask, "@")
 	user := mask_l[0]
 	ip := mask_l[1]
+	var active bool
 	if w[8] == "-" {
 		// Gline is deactivated
-		return
+		active = false
+	} else {
+		active = true
 	}
 	expireTS, err = strconv.ParseInt(w[4], 10, 64)
 	//fmt.Println(ip, mask, expireTS)
@@ -198,7 +207,7 @@ func handleGline280(conn *irc.Conn, line *irc.Line) {
 	}
 	if _, ip_net, err := net.ParseCIDR(ip); err == nil {
 		/* cidr is valid */
-		s.cranger.Insert(newGlineData(*ip_net, user, mask, expireTS, lastModTS))
+		s.cranger.Insert(newGlineData(*ip_net, user, mask, expireTS, lastModTS, active))
 	} else {
 		log.Println("Invalid IP/CIDR for mask:", mask)
 	}
