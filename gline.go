@@ -19,7 +19,6 @@ type glineData struct {
 	expireTS  int64
 	lastModTS int64
 	active    bool
-	//TTL       int64
 }
 
 func Is_valid_ip(ip string) bool {
@@ -92,7 +91,6 @@ func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64,
 		expireTS:  expireTS,
 		active:    active,
 		reason:    reason,
-		//TTL:       TTL,
 	}
 }
 
@@ -133,19 +131,13 @@ func (s *serverData) UpdateGline(mask string, active bool, expireTS int64) bool 
 // active glines and expired/deactivated glines.
 // An error is returned if the IP is invalid
 func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
-	// request networks containing this IP
 	entries, err := s.cranger.ContainingNetworks(net.ParseIP(ip))
 	if err != nil {
 		log.Printf("Debug: serverData.CheckGline(): ip=%s, error = %s\n", ip, err.Error())
 	}
 	activeGlines := make([]*glineData, 0, len(entries))
 	inactiveGlines := make([]*glineData, 0, len(entries))
-	/*if err != nil {
-		fmt.Println("ranger.ContainingNetworks()", err.Error())
-		os.Exit(1)
-	}*/
 
-	//TODO: Remove the lines below, which is there for debug purposes only
 	//log.Printf("Entries for %s:\n", ip)
 	for _, e := range entries {
 

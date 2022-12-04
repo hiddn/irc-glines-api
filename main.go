@@ -81,11 +81,7 @@ func main() {
 	c := irc.Client(irccfg)
 	servers.NewServerInfos(c, &config)
 
-	// Add handlers to do things here!
-	// e.g. join a channel on connect.
 	c.HandleFunc(irc.CONNECTED, handleConnect)
-	//c.HandleFunc(irc.CONNECTED,
-	//	func(conn *irc.Conn, line *irc.Line) { conn.Join(channelName) })
 	// And a signal on disconnect
 	quit := make(chan bool)
 	c.HandleFunc(irc.DISCONNECTED,
@@ -96,20 +92,10 @@ func main() {
 	c.HandleFunc("001", handle001)
 	c.HandleFunc("280", handleGline280)
 
-	// With a "simple" client, set Server before calling Connect...
-	//c.Config().Server = serverIpPort
-
 	// Tell client to connect.
 	if err := c.Connect(); err != nil {
 		log.Printf("Connection error: %s\n", err.Error())
 	}
-
-	/*
-			// ... or, use ConnectTo instead.
-		if err := c.ConnectTo(serverIpPort); err != nil {
-			fmt.Printf("Connection error: %s\n", err.Error())
-		}
-	*/
 
 	// Wait for disconnect
 	go start_api()
@@ -117,9 +103,7 @@ func main() {
 }
 
 func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
-	//var cfg *Configuration
 	s := servers.GetServerInfos(conn)
-	//cfg = s.config
 	line := strings.Trim(tline.Raw, "\n")
 	line = strings.Trim(line, "\r")
 	w := strings.Fields(line)
@@ -168,7 +152,6 @@ func handleConnect(conn *irc.Conn, line *irc.Line) {
 	var cfg *Configuration
 	s := servers.GetServerInfos(conn)
 	cfg = s.config
-	//cfg.ConnectCmds = make([]string, 10)
 	for _, cmd := range cfg.ConnectCmds {
 		conn.Raw(cmd)
 	}
@@ -210,7 +193,7 @@ func handleGline280(conn *irc.Conn, line *irc.Line) {
 	}
 	ip = AddCidrToIP(ip)
 	if _, ip_net, err := net.ParseCIDR(ip); err == nil {
-		/* cidr is valid */
+		// cidr is valid
 		s.cranger.Insert(newGlineData(*ip_net, user, mask, expireTS, lastModTS, reason, active))
 	} else {
 		log.Println("Invalid IP/CIDR for mask:", mask)
@@ -290,7 +273,6 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 	}
 	user := mask_l[0]
 	ip := mask_l[1]
-	//AddCidrToIP(&ip)
 	ip = StripCidrFromIP(ip)
 	expireTS, err = strconv.ParseInt(expireTSstr, 10, 64)
 	if err != nil {

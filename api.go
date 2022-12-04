@@ -32,8 +32,6 @@ func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire 
 }
 
 func start_api() {
-	//var err error
-
 	e := echo.New()
 
 	e.GET("/checkgline/:network/:ip", checkGlineApi)
@@ -42,7 +40,6 @@ func start_api() {
 
 func checkGlineApi(c echo.Context) error {
 	//TODO: limit input's length
-	//return c.JSON(http.StatusCreated, "")
 	ip := c.Param("ip")
 	network := c.Param("network")
 	log.Println("ip =", ip, ", net = ", network)
@@ -61,6 +58,5 @@ func checkGlineApi(c echo.Context) error {
 			list = append(list, e)
 		}
 	}
-	//return c.String(http.StatusOK, "Test "+ip)
 	return c.JSON(http.StatusOK, &list)
 }
