@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/yl2chen/cidranger"
@@ -14,6 +15,7 @@ type glineData struct {
 	ipNet     net.IPNet
 	user      string
 	mask      string
+	reason    string
 	expireTS  int64
 	lastModTS int64
 	active    bool
@@ -63,15 +65,25 @@ func (g *glineData) HoursUntilExpiration() int64 {
 
 func (g *glineData) HoursSinceLastMod() int64 {
 	// If the gline expires in 1 hour and 1 second, this function will return 2
-	return int64(math.Ceil(float64((g.LastModTS() - time.Now().Unix())) / 3600.0))
+	return int64(math.Ceil(float64((time.Now().Unix() - g.LastModTS())) / 3600.0))
 }
 
 func (g *glineData) IsGlineActive() bool {
 	return g.active && (g.ExpireTS() > int64(time.Now().Unix()))
 }
 
+// Updates glineData. If expireTS=0, expireTS value is not modified.
+func (g *glineData) UpdateGline(active bool, expireTS int64) {
+	g.lastModTS = time.Now().Unix()
+	g.active = active
+	if expireTS != 0 {
+		g.expireTS = expireTS
+	}
+	//fmt.Println("DEBUG: UpdateGline:", g.mask, active, expireTS)
+}
+
 // create customRangerEntry object using net and asn
-func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64, active bool) cidranger.RangerEntry {
+func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64, reason string, active bool) cidranger.RangerEntry {
 	return &glineData{
 		ipNet:     ipNet,
 		user:      user,
@@ -79,8 +91,42 @@ func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64,
 		lastModTS: lastModTS,
 		expireTS:  expireTS,
 		active:    active,
+		reason:    reason,
 		//TTL:       TTL,
 	}
+}
+
+// Updates existing glineData information based on gline mask.
+// Returns true if ip gline mask exists in current glineData struct. False otherwise.
+func (s *serverData) UpdateGline(mask string, active bool, expireTS int64) bool {
+	mask_l := strings.Split(mask, "@")
+	if len(mask_l) < 2 {
+		return false
+	}
+	ip := mask_l[1]
+	ip = StripCidrFromIP(ip)
+	log.Printf("DEBUG: serverData.UpdateGline(): ip=%s\n", ip)
+	if glines, exp_glines, err := s.CheckGline(ip); err == nil {
+		for _, entry := range glines {
+			emask := entry.Mask()
+			log.Printf("DEBUG: serverData.UpdateGline(): Comparing %s and %s in glines\n", mask, emask)
+			if strings.EqualFold(mask, emask) {
+				entry.UpdateGline(active, expireTS)
+				return true
+			}
+		}
+		for _, entry := range exp_glines {
+			emask := entry.Mask()
+			log.Printf("DEBUG: serverData.UpdateGline(): Comparing %s and %s in exp_glines\n", mask, emask)
+			if strings.EqualFold(mask, emask) {
+				entry.UpdateGline(active, expireTS)
+				return true
+			}
+		}
+	} else {
+		fmt.Println("Error in serverData.UpdateGline(): invalid mask provided")
+	}
+	return false
 }
 
 // This method accepts an IP as parameter and returns two lists:
@@ -89,6 +135,9 @@ func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64,
 func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
 	// request networks containing this IP
 	entries, err := s.cranger.ContainingNetworks(net.ParseIP(ip))
+	if err != nil {
+		log.Printf("Debug: serverData.CheckGline(): ip=%s, error = %s\n", ip, err.Error())
+	}
 	activeGlines := make([]*glineData, 0, len(entries))
 	inactiveGlines := make([]*glineData, 0, len(entries))
 	/*if err != nil {
@@ -97,7 +146,7 @@ func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
 	}*/
 
 	//TODO: Remove the lines below, which is there for debug purposes only
-	fmt.Printf("Entries for %s:\n", ip)
+	//log.Printf("Entries for %s:\n", ip)
 	for _, e := range entries {
 
 		// Cast e (cidranger.RangerEntry to struct glineData
@@ -112,14 +161,16 @@ func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
 			inactiveGlines = append(inactiveGlines, entry)
 		}
 
-		// Get network (converted to string by function)
-		n := entry.NetworkStr()
+		/*
+			// Get network (converted to string by function)
+			n := entry.NetworkStr()
 
-		// Get mask
-		mask := entry.Mask()
+			// Get mask
+			mask := entry.Mask()
 
-		// Display
-		fmt.Println("\t", n, mask)
+			// Display
+			fmt.Println("\t", n, mask)
+		*/
 	}
 	return activeGlines, inactiveGlines, err
 }
