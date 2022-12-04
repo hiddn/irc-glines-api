@@ -21,7 +21,7 @@ var config *Configuration
 type Configuration struct {
 	network     string
 	Server      string
-	ChannelName string
+	Channels    []string
 	Nick        string
 	Ident       string
 	Name        string
@@ -117,16 +117,16 @@ func main() {
 }
 
 func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
-	var cfg *Configuration
+	//var cfg *Configuration
 	s := servers.GetServerInfos(conn)
-	cfg = s.config
+	//cfg = s.config
 	line := strings.Trim(tline.Raw, "\n")
 	line = strings.Trim(line, "\r")
 	w := strings.Fields(line)
 	if len(w) < 4 {
 		return
 	}
-	if strings.EqualFold(w[2], cfg.ChannelName) && strings.EqualFold(w[3], ":!g") {
+	if w[2][0] == '#' && strings.EqualFold(w[3], ":!g") {
 		if len(w) < 5 {
 			str := fmt.Sprintf("PRIVMSG %s :Syntax: !g <IP>", w[2])
 			s.conn.Raw(str)
@@ -148,7 +148,7 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 			}
 			if len(str_slices) > 0 {
 				ret := strings.Join(str_slices, ",  ")
-				s.MsgChan(ret)
+				s.Msg(w[2], ret)
 			}
 		}
 	}
@@ -160,7 +160,7 @@ func (s *serverData) Msg(dst, msg string) {
 }
 
 func (s *serverData) MsgChan(msg string) {
-	str := fmt.Sprintf("PRIVMSG %s :%s", s.config.ChannelName, msg)
+	str := fmt.Sprintf("PRIVMSG %s :%s", s.config.Channels[0], msg)
 	s.conn.Raw(str)
 }
 
@@ -174,7 +174,9 @@ func handleConnect(conn *irc.Conn, line *irc.Line) {
 	}
 	modeStr := fmt.Sprintf("mode %s +s +98304", conn.Me().Nick)
 	conn.Raw(modeStr)
-	conn.Join(cfg.ChannelName)
+	for _, c := range cfg.Channels {
+		conn.Join(c)
+	}
 	conn.Raw("gline")
 }
 
