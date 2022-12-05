@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 type RetGlineData struct {
@@ -34,12 +35,12 @@ func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire 
 func start_api() {
 	e := echo.New()
 
+	e.Use(middleware.BodyLimit("1K"))
 	e.GET("/checkgline/:network/:ip", checkGlineApi)
 	e.Logger.Fatal(e.Start("127.0.0.1:2000"))
 }
 
 func checkGlineApi(c echo.Context) error {
-	//TODO: limit input's length
 	ip := c.Param("ip")
 	network := c.Param("network")
 	log.Println("ip =", ip, ", net = ", network)
