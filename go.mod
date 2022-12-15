@@ -4,13 +4,14 @@ go 1.18
 
 require (
 	github.com/fluffle/goirc v1.3.0
-	github.com/labstack/echo v3.3.10+incompatible
+	github.com/labstack/echo/v4 v4.9.1
 	github.com/yl2chen/cidranger v1.0.2
 )
 
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/emersion/go-sasl v0.0.0-20220912192320-0145f2c60ead // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -21,4 +22,5 @@ require (
 	golang.org/x/net v0.4.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/time v0.3.0 // indirect
 )
