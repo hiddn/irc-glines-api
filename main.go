@@ -155,7 +155,7 @@ func handleConnect(conn *irc.Conn, line *irc.Line) {
 	for _, cmd := range cfg.ConnectCmds {
 		conn.Raw(cmd)
 	}
-	modeStr := fmt.Sprintf("mode %s +s +98304", conn.Me().Nick)
+	modeStr := fmt.Sprintf("mode %s +s +33280", conn.Me().Nick)
 	conn.Raw(modeStr)
 	for _, c := range cfg.Channels {
 		conn.Join(c)
@@ -279,7 +279,7 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 		log.Fatal("expireTS provided is not an int. String:", line.Raw)
 	}
 	if !s.UpdateGline(mask, active, expireTS) {
-		if _, ip_net, err := net.ParseCIDR(ip); err != nil {
+		if _, ip_net, err := net.ParseCIDR(ip); err == nil {
 			lastModTS = time.Now().Unix()
 			s.cranger.Insert(newGlineData(*ip_net, user, mask, expireTS, lastModTS, reason, active))
 		}
