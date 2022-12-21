@@ -143,8 +143,9 @@ func (s *serverData) Msg(dst, msg string) {
 	s.conn.Raw(str)
 }
 
-func (s *serverData) MsgChan(msg string) {
-	str := fmt.Sprintf("PRIVMSG %s :%s", s.config.Channels[0], msg)
+func (s *serverData) MsgMainChan(msg string) {
+	firstchannel := strings.Split(s.config.Channels[0], " ")
+	str := fmt.Sprintf("PRIVMSG %s :%s", firstchannel, msg)
 	s.conn.Raw(str)
 }
 
@@ -207,12 +208,13 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 	var active bool
 	var expireTS, lastModTS int64
 	var expireTSstr string
+	expireTSstr = "0"
 	reason := "Unknown gline reason"
 
 	log.Println(line.Raw)
 	s := servers.GetServerInfos(conn)
 	w := strings.Split(line.Raw, " ")
-	if len(w) < 16 {
+	if len(w) < 15 {
 		return
 	}
 	if w[0][1:] != s.serverName {
@@ -226,8 +228,13 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 		active = false
 		mask = w[12]
 		mask = RemoveLastChar(mask)
-		expireTSstr = w[15]
-		expireTSstr = RemoveLastChar(expireTSstr)
+		if len(w) >= 16 {
+			expireTSstr = w[15]
+			expireTSstr = RemoveLastChar(expireTSstr)
+		} else {
+			out := fmt.Sprintf("Parse error: %s", line.Raw)
+			s.MsgMainChan(out)
+		}
 	} else if w[8] != "global" && w[9] != "GLINE" {
 		// All the following conditions are for global glines. If they are not, return now.
 		return
@@ -237,10 +244,15 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 		active = true
 		mask = w[11]
 		mask = RemoveLastChar(mask)
-		expireTSstr = w[14]
-		expireTSstr = RemoveLastChar(expireTSstr)
+		if len(w) > 15 {
+			expireTSstr = w[14]
+			expireTSstr = RemoveLastChar(expireTSstr)
+			reason = strings.Join(w[15:], " ")
+		} else {
+			out := fmt.Sprintf("Parse error: %s", line.Raw)
+			s.MsgMainChan(out)
+		}
 		log.Println("DEBUG:", mask, expireTSstr)
-		reason = strings.Join(w[15:], " ")
 	} else if w[7] == "modifying" {
 		if w[13] == "deactivating" {
 			//<- :hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org modifying global GLINE for *@1.2.3.4: globally deactivating G-line
@@ -254,16 +266,26 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 			active = true
 			mask = w[11]
 			mask = RemoveLastChar(mask)
-			expireTSstr = w[19]
-			expireTSstr = RemoveLastChar(expireTSstr)
+			if len(w) > 19 {
+				expireTSstr = w[19]
+				expireTSstr = RemoveLastChar(expireTSstr)
+			} else {
+				out := fmt.Sprintf("Parse error: %s", line.Raw)
+				s.MsgMainChan(out)
+			}
 		} else if w[13] == "expiration" {
 			//  :h27.eu.undernet.org NOTICE * :*** Notice -- dronescan.undernet.org modifying global GLINE for *@2a01:cb00:8bd9:4700:cd83:55e2:f420:b455: changing expiration time to 1670207809; and extending record lifetime to 1670207809
 			//<- :hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org modifying global GLINE for *@1.2.3.4: changing expiration time to 1669689583; extending record lifetime to 1669689583; and changing reason to "Unknown G-Line"
 			active = true
 			mask = w[11]
 			mask = RemoveLastChar(mask)
-			expireTSstr = w[16]
-			expireTSstr = RemoveLastChar(expireTSstr)
+			if len(w) > 16 {
+				expireTSstr = w[16]
+				expireTSstr = RemoveLastChar(expireTSstr)
+			} else {
+				out := fmt.Sprintf("Parse error: %s", line.Raw)
+				s.MsgMainChan(out)
+			}
 			//TODO: send "GLINE <mask>" to server, as it is impossible from the message to know from this message if the gline is active or not. The expiration time will be in the future, even if the gline is being deactivated. I have to make sure that I also adapt handeGline280() to be able to update the info instead of just insert.
 		}
 	}
