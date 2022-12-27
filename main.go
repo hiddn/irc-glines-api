@@ -317,6 +317,7 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 		log.Fatal("expireTS provided is not an int. String:", line)
 	}
 	if !s.UpdateGline(mask, active, expireTS) {
+		ip := AddCidrToIP(ip)
 		if _, ip_net, err := net.ParseCIDR(ip); err == nil {
 			lastModTS = time.Now().Unix()
 			//fmt.Printf("Adding new gline infos for %s\n", ip)
