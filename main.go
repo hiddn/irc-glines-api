@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -144,6 +145,9 @@ func (s *serverData) Msg(dst, msg string) {
 }
 
 func (s *serverData) MsgMainChan(msg string) {
+	if !s.conn.Connected() {
+		return
+	}
 	firstchannel := strings.Split(s.config.Channels[0], " ")
 	str := fmt.Sprintf("PRIVMSG %s :%s", firstchannel, msg)
 	s.conn.Raw(str)
@@ -203,25 +207,29 @@ func handleGline280(conn *irc.Conn, line *irc.Line) {
 }
 
 func handleNOTICE(conn *irc.Conn, line *irc.Line) {
+	log.Println(line.Raw)
+	s := servers.GetServerInfos(conn)
+	w := strings.Split(line.Raw, " ")
+	handleGNOTICE(line.Raw, w, s)
+}
+func handleGNOTICE(line string, w []string, s *serverData) error {
 	var err error
 	var mask string
 	var active bool
 	var expireTS, lastModTS int64
 	var expireTSstr string
+	var retErr error = nil
 	expireTSstr = "0"
 	reason := "Unknown gline reason"
 
-	log.Println(line.Raw)
-	s := servers.GetServerInfos(conn)
-	w := strings.Split(line.Raw, " ")
 	if len(w) < 15 {
-		return
+		return nil
 	}
 	if w[0][1:] != s.serverName {
-		return
+		return nil
 	}
 	if w[2] != "*" {
-		return
+		return nil
 	}
 	if w[8] == "deactivated" && w[9] == "global" && w[10] == "GLINE" {
 		//<- :hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org adding deactivated global GLINE for *@1.1.1.1, expiring at 1669690015: Unknown G-Line
@@ -232,12 +240,13 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 			expireTSstr = w[15]
 			expireTSstr = RemoveLastChar(expireTSstr)
 		} else {
-			out := fmt.Sprintf("Parse error: %s", line.Raw)
+			out := fmt.Sprintf("Parse error: %s", line)
 			s.MsgMainChan(out)
+			retErr = errors.New(out)
 		}
 	} else if w[8] != "global" && w[9] != "GLINE" {
 		// All the following conditions are for global glines. If they are not, return now.
-		return
+		return nil
 	} else if w[7] == "adding" {
 		//<- :hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org adding global GLINE for *@1.1.1.1, expiring at 1669689587: [0] test
 		// :h27.eu.undernet.org NOTICE * :*** Notice -- dronescan.undernet.org adding global GLINE for *@171.253.56.186, expiring at 1670191909: AUTO [0] (171.253.56.186) You were identified as a drone. Email abuse@undernet.org for removal. Visit https://www.undernet.org/gline#drone for more information. (P540)
@@ -249,8 +258,9 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 			expireTSstr = RemoveLastChar(expireTSstr)
 			reason = strings.Join(w[15:], " ")
 		} else {
-			out := fmt.Sprintf("Parse error: %s", line.Raw)
+			out := fmt.Sprintf("Parse error: %s", line)
 			s.MsgMainChan(out)
+			retErr = errors.New(out)
 		}
 		log.Println("DEBUG:", mask, expireTSstr)
 	} else if w[7] == "modifying" {
@@ -270,8 +280,9 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 				expireTSstr = w[19]
 				expireTSstr = RemoveLastChar(expireTSstr)
 			} else {
-				out := fmt.Sprintf("Parse error: %s", line.Raw)
+				out := fmt.Sprintf("Parse error: %s", line)
 				s.MsgMainChan(out)
+				retErr = errors.New(out)
 			}
 		} else if w[13] == "expiration" {
 			//  :h27.eu.undernet.org NOTICE * :*** Notice -- dronescan.undernet.org modifying global GLINE for *@2a01:cb00:8bd9:4700:cd83:55e2:f420:b455: changing expiration time to 1670207809; and extending record lifetime to 1670207809
@@ -283,29 +294,40 @@ func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 				expireTSstr = w[16]
 				expireTSstr = RemoveLastChar(expireTSstr)
 			} else {
-				out := fmt.Sprintf("Parse error: %s", line.Raw)
+				out := fmt.Sprintf("Parse error: %s", line)
 				s.MsgMainChan(out)
+				retErr = errors.New(out)
 			}
 			//TODO: send "GLINE <mask>" to server, as it is impossible from the message to know from this message if the gline is active or not. The expiration time will be in the future, even if the gline is being deactivated. I have to make sure that I also adapt handeGline280() to be able to update the info instead of just insert.
+		} else {
+			out := fmt.Sprintf("Uncaught gline message message: %s", line)
+			retErr = errors.New(out)
+			return retErr
 		}
 	}
 	mask_l := strings.Split(mask, "@")
 	if len(mask_l) < 2 {
-		return
+		return nil
 	}
 	user := mask_l[0]
 	ip := mask_l[1]
 	ip = StripCidrFromIP(ip)
 	expireTS, err = strconv.ParseInt(expireTSstr, 10, 64)
 	if err != nil {
-		log.Fatal("expireTS provided is not an int. String:", line.Raw)
+		log.Fatal("expireTS provided is not an int. String:", line)
 	}
 	if !s.UpdateGline(mask, active, expireTS) {
 		if _, ip_net, err := net.ParseCIDR(ip); err == nil {
 			lastModTS = time.Now().Unix()
+			//fmt.Printf("Adding new gline infos for %s\n", ip)
 			s.cranger.Insert(newGlineData(*ip_net, user, mask, expireTS, lastModTS, reason, active))
+		} else {
+			out := fmt.Sprintf("net.ParseCIDR(%s) error: %s", ip, line)
+			s.MsgMainChan(out)
+			retErr = errors.New(out)
 		}
 	}
+	return retErr
 }
 
 func handle001(conn *irc.Conn, line *irc.Line) {
