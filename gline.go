@@ -30,9 +30,9 @@ func Is_valid_ip(ip string) bool {
 
 func Is_valid_cidr(cidr string) bool {
 	if _, _, r := net.ParseCIDR(cidr); r == nil {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 // get function for network
