@@ -5,5 +5,5 @@
     "nick": "InvalidNick",
     "ident": "user",
     "name": ".",
-    "connectCmds": []
+    "connectCmds": ["oper user password"]
 }
