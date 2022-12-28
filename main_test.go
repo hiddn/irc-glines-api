@@ -97,6 +97,27 @@ func TestHandleGNOTICE(t *testing.T) {
 			isDeactivated: false,
 			expectedErr:   false,
 		},
+		{
+			snotice:       `:hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org modifying global GLINE for *@1.1.1.7/32: changing expiration time to 1669689583; extending record lifetime to 1669689583; and changing reason to "Unknown G-Line"`,
+			ip:            "1.1.1.7/32",
+			expireTS:      1669689583,
+			isDeactivated: false,
+			expectedErr:   false,
+		},
+		{
+			snotice:       `:hidden.undernet.org NOTICE * :*** Notice -- uworld.eu.undernet.org adding global GLINE for *@2.1.1.0/24, expiring at 1672262160: AUTO Please make sure identd is installed and properly configured on your router and/or firewall to allow connections from the internet on port 113 before you reconnect. Visit https://www.undernet.org/gline#identd for more information.`,
+			ip:            "2.1.1.1",
+			expireTS:      1672262160,
+			isDeactivated: false,
+			expectedErr:   false,
+		},
+		{
+			snotice:       `:hidden.undernet.org NOTICE * :*** Notice -- uworld.eu.undernet.org adding global GLINE for *@2a04:dd01:3:5d::/64, expiring at 1672262160: AUTO Please make sure identd is installed and properly configured on your router and/or firewall to allow connections from the internet on port 113 before you reconnect. Visit https://www.undernet.org/gline#identd for more information.`,
+			ip:            "2a04:dd01:3:5d::6667",
+			expireTS:      1672262160,
+			isDeactivated: false,
+			expectedErr:   false,
+		},
 	}
 	//want := true
 	for _, c := range cases {
