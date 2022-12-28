@@ -1,4 +1,6 @@
 # TODO
+* [ ] Restrict output in both API and irc. With the recent commit 5 mins ago, it is now possible to lookup by network cidr.
+* [ ] Use integrated privmsgf function instead of our own, which will split messages if it exceeds a certain amount of chars
 * [ ] Add TestHandleGline280() to main_test.go
 * [ ] Add support for dalnet
 * [ ] Take care of the TODO written around line 301 in main.go:
