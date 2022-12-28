@@ -102,7 +102,6 @@ func (s *serverData) UpdateGline(mask string, active bool, expireTS int64) bool 
 		return false
 	}
 	ip := mask_l[1]
-	ip = StripCidrFromIP(ip)
 	log.Printf("DEBUG: serverData.UpdateGline(): ip=%s\n", ip)
 	if glines, exp_glines, err := s.CheckGline(ip); err == nil {
 		for _, entry := range glines {
@@ -130,8 +129,20 @@ func (s *serverData) UpdateGline(mask string, active bool, expireTS int64) bool 
 // This method accepts an IP as parameter and returns two lists:
 // active glines and expired/deactivated glines.
 // An error is returned if the IP is invalid
+// Notes:
+//
+//	If a gline exists on *@1.2.3.0/24, CheckGline("1.2.3.0/31") will return nothing
+//	If a gline exists on *@1.2.3.0/24, CheckGline("1.2.0.0/16") will return the gline
 func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
 	entries, err := s.cranger.ContainingNetworks(net.ParseIP(ip))
+	if err != nil {
+		ip = AddCidrToIP(ip)
+		_, ipnet, err2 := net.ParseCIDR(ip)
+		if err2 != nil {
+			log.Printf("Debug: net.ParseCIDR(%s) failed\n", ip)
+		}
+		entries, err = s.cranger.CoveredNetworks(*ipnet)
+	}
 	if err != nil {
 		log.Printf("Debug: serverData.CheckGline(): ip=%s, error = %s\n", ip, err.Error())
 	}

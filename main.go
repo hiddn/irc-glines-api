@@ -311,7 +311,6 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 	}
 	user := mask_l[0]
 	ip := mask_l[1]
-	ip = StripCidrFromIP(ip)
 	expireTS, err = strconv.ParseInt(expireTSstr, 10, 64)
 	if err != nil {
 		log.Fatal("expireTS provided is not an int. String:", line)
@@ -355,9 +354,13 @@ func readConf(filename string) Configuration {
 	return configuration
 }
 
-// Returns true if network becomes valid by successfully adding "/32" (ipv4) or "/128" at the end of the ip.
-// Returns false if network was already valid before (cidr present in string ip) or if the ip address or network is invalid
+// Returns ip/32 if ipv4 address provided without cidr
+// Returns ip/128 if ipv6 address provided without cidr
+// Returns ip unchanged if char '/' is present in string ip
 func AddCidrToIP(ip string) string {
+	if strings.Contains(ip, "/") {
+		return ip
+	}
 	if tmpIP := net.ParseIP(ip); tmpIP != nil {
 		if version := tmpIP.To4(); version != nil {
 			ip += "/32"
