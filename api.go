@@ -32,12 +32,13 @@ func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire 
 	}
 }
 
-func start_api() {
+func start_api() *echo.Echo {
 	e := echo.New()
 
 	e.Use(middleware.BodyLimit("1K"))
 	e.GET("/checkgline/:network/:ip", checkGlineApi)
 	e.Logger.Fatal(e.Start("127.0.0.1:2000"))
+	return e
 }
 
 func checkGlineApi(c echo.Context) error {
