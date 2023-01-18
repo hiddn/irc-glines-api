@@ -1,6 +1,8 @@
 package main
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIs_valid_ipValid(t *testing.T) {
 	ip := "1.2.3.4"
@@ -66,4 +68,9 @@ func TestIs_valid_cidrInvalid(t *testing.T) {
 			t.Fatalf(`Is_valid_cidr(%s) = %t. Want %t`, c, res, want)
 		}
 	}
+}
+
+func TestIs_valid_cidrInvalid2(t *testing.T) {
+	var ones [129]byte
+	t.Fatalf("%#v", ones)
 }
