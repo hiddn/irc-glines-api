@@ -1,9 +1,10 @@
-module example/irc-glines-api
+module github.com/hiddn/irc-glines-api
 
 go 1.18
 
 require (
 	github.com/fluffle/goirc v1.3.0
+	github.com/hiddn/cidranger v1.0.2
 	github.com/labstack/echo/v4 v4.9.1
 	github.com/yl2chen/cidranger v1.0.2
 )

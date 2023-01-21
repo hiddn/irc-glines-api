@@ -1,4 +1,4 @@
-package main
+package ircglineapi
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yl2chen/cidranger"
+	"github.com/hiddn/cidranger"
 )
 
 type glineData struct {
@@ -134,14 +134,14 @@ func (s *serverData) UpdateGline(mask string, active bool, expireTS int64) bool 
 //	If a gline exists on *@1.2.3.0/24, CheckGline("1.2.3.0/31") will return nothing
 //	If a gline exists on *@1.2.3.0/24, CheckGline("1.2.0.0/16") will return the gline
 func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
-	entries, err := s.cranger.ContainingNetworks(net.ParseIP(ip))
+	entries, err := s.Cranger.ContainingNetworks(net.ParseIP(ip))
 	if err != nil {
 		ip = AddCidrToIP(ip)
 		_, ipnet, err2 := net.ParseCIDR(ip)
 		if err2 != nil {
 			log.Printf("Debug: net.ParseCIDR(%s) failed\n", ip)
 		}
-		entries, err = s.cranger.CoveredNetworks(*ipnet)
+		entries, err = s.Cranger.CoveringOrCoveredNetworks(*ipnet)
 	}
 	if err != nil {
 		log.Printf("Debug: serverData.CheckGline(): ip=%s, error = %s\n", ip, err.Error())

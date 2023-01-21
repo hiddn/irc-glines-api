@@ -1,4 +1,4 @@
-package main
+package ircglineapi
 
 import (
 	"log"
@@ -32,7 +32,7 @@ func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire 
 	}
 }
 
-func start_api() *echo.Echo {
+func Api_init() *echo.Echo {
 	e := echo.New()
 
 	e.Use(middleware.BodyLimit("1K"))

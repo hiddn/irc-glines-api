@@ -1,4 +1,4 @@
-package main
+package ircglineapi
 
 import (
 	"net/http"

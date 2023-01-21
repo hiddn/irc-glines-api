@@ -1,4 +1,4 @@
-package main
+package ircglineapi
 
 import (
 	"strings"
@@ -29,9 +29,9 @@ func TestHandleGNOTICE(t *testing.T) {
 	ircClient := irc.Client(irccfg)
 
 	s := servers.NewServerInfos(ircClient, config)
-	s.serverName = config.Server
-	if s.serverName != config.Server {
-		t.Errorf(`s.serverName != config.Server: %s != %s`, s.serverName, config.Server)
+	s.ServerName = config.Server
+	if s.ServerName != config.Server {
+		t.Errorf(`s.serverName != config.Server: %s != %s`, s.ServerName, config.Server)
 	}
 	//s := servers.GetServerInfos(nil)
 	cases := []struct {
