@@ -1,7 +1,7 @@
 package main
 
 import (
-	ircgline "github.com/hiddn/irc-glines-api/irc-glines-api"
+	ircgline "github.com/hiddn/irc-glines-api/src"
 )
 
 func main() {
