@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -96,6 +97,9 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 	w := strings.Fields(line)
 	if len(w) < 4 {
 		return
+	}
+	if w[2][0] == '#' && strings.EqualFold(w[3], ":!die") {
+		s.die()
 	}
 	if w[2][0] == '#' && strings.EqualFold(w[3], ":!g") {
 		if len(w) < 5 {
@@ -332,4 +336,10 @@ func handle001(conn *irc.Conn, line *irc.Line) {
 	if len(w) >= 6 {
 		s.NetworkName = w[6]
 	}
+}
+
+func (s *serverData) die() {
+	s.Conn.Raw("QUIT :Killed")
+	time.Sleep(1 * time.Second)
+	os.Exit(0)
 }
