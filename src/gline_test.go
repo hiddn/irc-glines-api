@@ -70,7 +70,7 @@ func TestIs_valid_cidrInvalid(t *testing.T) {
 	}
 }
 
-func TestIs_valid_cidrInvalid2(t *testing.T) {
+/*func TestIs_valid_cidrInvalid2(t *testing.T) {
 	var ones [129]byte
 	t.Fatalf("%#v", ones)
-}
+}*/
