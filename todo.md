@@ -14,9 +14,9 @@
 * [ ] Modify cidranger to add a new function that allows to check intersection between two cidr ranges.
 
 # Comments from Ratler
-* [ ] make use of c.Bind() instead of c.Param(), and bind the request input to a struct, much cleaner.
+* [X] make use of c.Bind() instead of c.Param(), and bind the request input to a struct, much cleaner.
   * Allows to easily plugin validation on the params
-* [ ] add two middleware to echo. Logging() and Recover()
+* [X] add two middleware to echo. Logging() and Recover()
   * That way you can use c.Logger().Info("bla bla"). And you control the behavior globally, like logformat etc.
   * Recover() is great if you get a panic, because it will properly capture it and throw good trace instead of just crashing
-* [ ] Make the app a package
+* [X] Make the app a package

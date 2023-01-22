@@ -32,25 +32,35 @@ func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire 
 	}
 }
 
+type api_struct struct {
+	Network string `param:"network"`
+	Ip      string `param:"ip"`
+}
+
 func Api_init() *echo.Echo {
 	e := echo.New()
 
 	e.Use(middleware.BodyLimit("1K"))
+	e.Use(middleware.Logger())
 	e.GET("/checkgline/:network/:ip", checkGlineApi)
+	e.Use(middleware.Recover())
 	e.Logger.Fatal(e.Start("127.0.0.1:2000"))
 	return e
 }
 
 func checkGlineApi(c echo.Context) error {
-	ip := c.Param("ip")
-	network := c.Param("network")
-	log.Println("ip =", ip, ", net = ", network)
-	s := servers.GetServerInfosByNetwork(network)
+	var in api_struct
+	err := c.Bind(&in)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, "bad request")
+	}
+	log.Println("ip =", in.Ip, ", net = ", in.Network)
+	s := servers.GetServerInfosByNetwork(in.Network)
 	if s == nil {
 		return c.JSON(http.StatusNotFound, "Network not found")
 	}
 	list := make([]*RetGlineData, 0, 10)
-	if glines, exp_glines, err := s.CheckGline(ip); err == nil {
+	if glines, exp_glines, err := s.CheckGline(in.Ip); err == nil {
 		for _, entry := range glines {
 			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.IsGlineActive())
 			list = append(list, e)
