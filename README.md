@@ -10,8 +10,7 @@ Hidden (hidden at undernet.org)
 For the bot to work well, an o:line is required. Otherwise, it will not be able to view server notices and receive full content for the /gline command.
 
 ## Installation / Configuration
-1. cd app
-2. cp example.config.json config.json
-3. edit config.json
-4. go build .
-5. ./app
+1. cp example.config.json config.json
+2. edit config.json
+3. go build .
+4. ./irc-glines-api
