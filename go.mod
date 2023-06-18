@@ -6,7 +6,6 @@ require (
 	github.com/fluffle/goirc v1.3.0
 	github.com/hiddn/cidranger v1.0.2
 	github.com/labstack/echo/v4 v4.9.1
-	github.com/yl2chen/cidranger v1.0.2
 )
 
 require (
@@ -19,8 +18,8 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
-	golang.org/x/net v0.4.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 )
