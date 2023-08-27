@@ -29,8 +29,8 @@ type serverData struct {
 type serversType map[*irc.Conn]*serverData
 
 func (s serversType) NewServerInfos(conn *irc.Conn, config *Configuration) *serverData {
-	if srv := s.GetServerInfosByNetwork(config.network); srv != nil {
-		log.Fatalln("network exists twice in config file: ", config.network)
+	if srv := s.GetServerInfosByNetwork(config.Network); srv != nil {
+		log.Fatalln("network exists twice in config file: ", config.Network)
 	}
 	newData := &serverData{
 		Conn:                 conn,

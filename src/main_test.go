@@ -11,7 +11,7 @@ import (
 // If networks are used in the gline mask, make sure they do not overlap
 func TestHandleGNOTICE(t *testing.T) {
 	config := &Configuration{
-		network:     "undernet",
+		Network:     "undernet",
 		Server:      "hidden.undernet.org",
 		Channels:    []string{"#burp"},
 		Nick:        "GL",

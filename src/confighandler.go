@@ -22,7 +22,7 @@ func ReadConf(filename string) Configuration {
 }
 
 type Configuration struct {
-	network     string
+	Network     string
 	Server      string
 	Channels    []string
 	Nick        string
