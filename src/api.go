@@ -3,18 +3,17 @@ package ircglineapi
 import (
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 type RetGlineData struct {
-	Active           string `json:"active"`
+	Active           bool   `json:"active"`
 	Mask             string `json:"mask"`
-	ExpireTS         string `json:"expirets"`
-	LastModTS        string `json:"lastmodts"`
-	HoursUntilExpire string `json:"hoursuntilexpire"`
+	ExpireTS         int64  `json:"expirets"`
+	LastModTS        int64  `json:"lastmodts"`
+	HoursUntilExpire int64  `json:"hoursuntilexpire"`
 	Reason           string `json:"reason"`
 }
 type RetGlineDatas struct {
@@ -23,11 +22,11 @@ type RetGlineDatas struct {
 
 func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire int64, active bool) *RetGlineData {
 	return &RetGlineData{
-		Active:           strconv.FormatBool(active),
+		Active:           active,
 		Mask:             mask,
-		ExpireTS:         strconv.Itoa(int(expireTS)),
-		LastModTS:        strconv.Itoa(int(lastModTS)),
-		HoursUntilExpire: strconv.Itoa(int(hoursUntilExpire)),
+		ExpireTS:         expireTS,
+		LastModTS:        lastModTS,
+		HoursUntilExpire: hoursUntilExpire,
 		Reason:           reason,
 	}
 }
