@@ -5,5 +5,6 @@
     "nick": "InvalidNick",
     "ident": "user",
     "name": ".",
-    "connectCmds": ["oper user password"]
+    "connectCmds": ["oper user password"],
+    "api_key": "choose_something_random_here"
 }

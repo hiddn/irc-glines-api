@@ -13,6 +13,6 @@ func main() {
 	s.Connect()
 
 	// Wait for disconnect
-	ircgline.Api_init()
+	ircgline.Api_init(config)
 	<-s.Quit
 }

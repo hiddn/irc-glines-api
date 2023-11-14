@@ -29,4 +29,5 @@ type Configuration struct {
 	Ident       string
 	Name        string
 	ConnectCmds []string
+	ApiKey      string
 }
