@@ -48,11 +48,6 @@ func Api_init(config Configuration) *echo.Echo {
 	e.GET("/checkgline/:network/:ip", checkGlineApi)
 	e.GET("/glinelookup/:network", checkGlineOwnIPApi)
 	e.Use(middleware.Recover())
-	/*
-		e.Use(middleware.KeyAuth(func(key string, c echo.Context) (bool, error) {
-			return key == config.ApiKey, nil
-		}))
-	*/
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
 		Validator: func(key string, c echo.Context) (bool, error) {
