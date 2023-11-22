@@ -270,7 +270,7 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 			mask = w[11]
 			mask = RemoveLastChar(mask)
 			expireTSstr = "0"
-		} else if w[13] == "activating" {
+		} else if w[13] == "activating" && w[15] == "changing" {
 			//  :h27.eu.undernet.org NOTICE * :*** Notice -- uworld.eu.undernet.org modifying global GLINE for ~*@141.94.71.155: globally activating G-line; changing expiration time to 1670260017; and extending record lifetime to 1670260033
 			active = true
 			mask = w[11]
@@ -278,6 +278,18 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 			if len(w) > 19 {
 				expireTSstr = w[19]
 				expireTSstr = RemoveLastChar(expireTSstr)
+			} else {
+				out := fmt.Sprintf("Parse error: %s", line)
+				s.MsgMainChan(out)
+				retErr = errors.New(out)
+			}
+		} else if w[13] == "activating" && w[16] == "changing" {
+			//  :h27.eu.undernet.org NOTICE * :*** Notice -- uworld.eu.undernet.org modifying global GLINE for *@222.124.21.227: globally activating G-line; and changing expiration time to 1700620682
+			active = true
+			mask = w[11]
+			mask = RemoveLastChar(mask)
+			if len(w) > 20 {
+				expireTSstr = w[20]
 			} else {
 				out := fmt.Sprintf("Parse error: %s", line)
 				s.MsgMainChan(out)
