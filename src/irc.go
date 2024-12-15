@@ -141,7 +141,7 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 	}
 }
 
-func (s *serverData) Connect() bool {
+func (s *serverData) Connect() {
 	for {
 		if err := s.Conn.Connect(); err != nil {
 			log.Printf("Connection error: %s\nTrying again in %d seconds\n", err.Error(), s.Config.ReconnWaitTime)
