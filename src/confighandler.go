@@ -22,12 +22,13 @@ func ReadConf(filename string) Configuration {
 }
 
 type Configuration struct {
-	Network     string
-	Server      string
-	Channels    []string
-	Nick        string
-	Ident       string
-	Name        string
-	ConnectCmds []string
-	ApiKey      string
+	Network        string
+	Server         string
+	Channels       []string
+	Nick           string
+	Ident          string
+	Name           string
+	ConnectCmds    []string
+	ApiKey         string
+	ReconnWaitTime int
 }

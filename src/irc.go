@@ -73,7 +73,12 @@ func Irc_init(config *Configuration) *serverData {
 	// And a signal on disconnect
 	s.Quit = make(chan bool)
 	c.HandleFunc(irc.DISCONNECTED,
-		func(conn *irc.Conn, line *irc.Line) { s.Quit <- true })
+		func(conn *irc.Conn, line *irc.Line) {
+			fmt.Printf("Disconnected from IRC server. Reconnecting in %d seconds.\n", s.Config.ReconnWaitTime)
+			time.Sleep(time.Duration(s.Config.ReconnWaitTime) * time.Second)
+			s.Connect()
+			s.Quit <- true // Ne fonctionne pas on dirait bien. Probablement à cause de ircgline.Api_init() qui ne se termine pas
+		})
 	c.HandleFunc(irc.PRIVMSG, handlePRIVMSG)
 	c.HandleFunc(irc.NOTICE, handleNOTICE)
 
@@ -122,7 +127,14 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 				s.Conn.Raw(tmpStr)
 			}
 			if len(str_slices) > 0 {
-				ret := strings.Join(str_slices, ",  ")
+				//ret := strings.Join(str_slices, ",  ")
+				//s.Msg(w[2], ret)
+				for i, res := range str_slices {
+					ret := fmt.Sprintf("(%d/%d) %s", i+1, len(str_slices), res)
+					s.Msg(w[2], ret)
+				}
+			} else {
+				ret := fmt.Sprintf("No match: %s", w[4])
 				s.Msg(w[2], ret)
 			}
 		}
@@ -130,11 +142,29 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 }
 
 func (s *serverData) Connect() bool {
-	if err := s.Conn.Connect(); err != nil {
-		log.Printf("Connection error: %s\n", err.Error())
-		return false
+	for {
+		if err := s.Conn.Connect(); err != nil {
+			log.Printf("Connection error: %s\nTrying again in %d seconds\n", err.Error(), s.Config.ReconnWaitTime)
+			time.Sleep(time.Duration(s.Config.ReconnWaitTime) * time.Second)
+		} else {
+			go s.TimerPing()
+			break
+		}
 	}
-	return true
+}
+
+func (s *serverData) TimerPing() {
+	for {
+		// Code to execute every 5 minutes
+		fmt.Println("Sending PING", time.Now())
+		if s.Conn.Connected() {
+			s.Conn.Raw("PING :me")
+		} else {
+			fmt.Println("Not sending PING (Disconnected)")
+			//return
+		}
+		time.Sleep(60 * time.Second)
+	}
 }
 
 func (s *serverData) Msg(dst, msg string) {
