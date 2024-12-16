@@ -62,6 +62,10 @@ func (g *glineData) HoursUntilExpiration() int64 {
 	return int64(math.Ceil(float64((g.ExpireTS() - time.Now().Unix())) / 3600.0))
 }
 
+func (g *glineData) SecondsUntilExpiration() int64 {
+	return int64(g.ExpireTS() - time.Now().Unix())
+}
+
 func (g *glineData) HoursSinceLastMod() int64 {
 	// If the gline expires in 1 hour and 1 second, this function will return 2
 	return int64(math.Ceil(float64((time.Now().Unix() - g.LastModTS())) / 3600.0))
@@ -71,10 +75,17 @@ func (g *glineData) IsGlineActive() bool {
 	return g.active && (g.ExpireTS() > int64(time.Now().Unix()))
 }
 
-// Updates glineData. If expireTS=0, expireTS value is not modified.
-func (g *glineData) UpdateGline(active bool, expireTS int64) {
+// Updates glineData.
+// If expireTS=0, expireTS value is not modified.
+// If reason == nil, reason is not modified
+func (g *glineData) UpdateGline(active *bool, expireTS int64, reason string) {
 	g.lastModTS = time.Now().Unix()
-	g.active = active
+	if active != nil {
+		g.active = *active
+	}
+	if reason != "" {
+		g.reason = reason
+	}
 	if expireTS != 0 {
 		g.expireTS = expireTS
 	}
@@ -96,7 +107,7 @@ func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64,
 
 // Updates existing glineData information based on gline mask.
 // Returns true if ip gline mask exists in current glineData struct. False otherwise.
-func (s *serverData) UpdateGline(mask string, active bool, expireTS int64) bool {
+func (s *serverData) UpdateGline(mask string, active *bool, expireTS int64, reason string) bool {
 	mask_l := strings.Split(mask, "@")
 	if len(mask_l) < 2 {
 		return false
@@ -108,7 +119,7 @@ func (s *serverData) UpdateGline(mask string, active bool, expireTS int64) bool 
 			emask := entry.Mask()
 			log.Printf("DEBUG: serverData.UpdateGline(): Comparing %s and %s in glines\n", mask, emask)
 			if strings.EqualFold(mask, emask) {
-				entry.UpdateGline(active, expireTS)
+				entry.UpdateGline(active, expireTS, reason)
 				return true
 			}
 		}
@@ -116,7 +127,7 @@ func (s *serverData) UpdateGline(mask string, active bool, expireTS int64) bool 
 			emask := entry.Mask()
 			log.Printf("DEBUG: serverData.UpdateGline(): Comparing %s and %s in exp_glines\n", mask, emask)
 			if strings.EqualFold(mask, emask) {
-				entry.UpdateGline(active, expireTS)
+				entry.UpdateGline(active, expireTS, reason)
 				return true
 			}
 		}
