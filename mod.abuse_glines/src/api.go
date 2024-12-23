@@ -69,7 +69,7 @@ func Api_init(conf Configuration) *echo.Echo {
 
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
-	e.GET("/api/requestrem", requestRemGlineApi)
+	e.POST("/api/requestrem", requestRemGlineApi)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
