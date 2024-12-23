@@ -151,6 +151,7 @@ func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
 		_, ipnet, err2 := net.ParseCIDR(ip)
 		if err2 != nil {
 			log.Printf("Debug: net.ParseCIDR(%s) failed\n", ip)
+			return nil, nil, err2
 		}
 		entries, err = s.Cranger.CoveringOrCoveredNetworks(*ipnet)
 	}
