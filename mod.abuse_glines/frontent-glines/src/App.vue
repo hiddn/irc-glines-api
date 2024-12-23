@@ -25,6 +25,8 @@ const isSubmitDisabled = computed(() => {
   return !nickname.value || !realname.value || !email.value || !message.value
 })
 
+const removalResponse = ref([])
+
 // Try to get user's IP address
 const getUserIP = async () => {
   try {
@@ -40,6 +42,10 @@ const lookupGline = async () => {
   if (!ip.value) return
   
   errormsg.value = ''
+  removalResponse.value = ''
+  glines.value = []
+  isSubmitDisabled.value = false
+  showRequestForm.value = false
   const url = config.glinelookup_url
     .replace(':network', config.network.toLowerCase())
     .replace(':ip', ip.value)
@@ -85,6 +91,7 @@ const requestRemoval = async () => {
         'Authorization': `Bearer ${config.api_key}`
       }
     })
+    removalResponse.value = response.data
     console.log('Removal request response:', response.data)
   } catch (error) {
     console.error('Failed to request removal:', error)
@@ -177,6 +184,15 @@ getUserIP()
         >
           Submit
         </button>
+      </div>
+      <div v-if="removalResponse.length > 0" class="removal-response mt-4">
+        <h2>Removal Response</h2>
+        <div v-for="response in removalResponse" :key="response.mask" class="response-item">
+          <p><strong>Mask:</strong> {{ response.mask }}</p>
+          <p><strong>Reason:</strong> {{ response.reason }}</p>
+          <p><strong>Auto Removed:</strong> {{ response.autoremove ? 'Yes' : 'No' }}</p>
+          <p><strong>Message:</strong> {{ response.msg }}</p>
+        </div>
       </div>
     </div>
   </div>
@@ -295,6 +311,17 @@ const formatReason = (reason) => {
 .request-form .button:disabled {
   background-color: #a0aec0;
   cursor: not-allowed;
+}
+
+.removal-response {
+  margin-top: 1rem;
+}
+
+.response-item {
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  border-radius: 0.25rem;
+  margin-bottom: 1rem;
 }
 </style>
 
