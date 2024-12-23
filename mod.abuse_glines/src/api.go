@@ -93,7 +93,7 @@ func requestRemGlineApi(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "bad request")
 	}
 	log.Println("ip =", in.Ip, ", net =", in.Network)
-	if !slices.Contains(config.Networks, in.Network) {
+	if !slices.Contains(config.Networks, strings.ToLower(in.Network)) {
 		return c.JSON(http.StatusNotFound, "Network not found")
 	}
 	list := make([]*RetApiData, 0, 10)
