@@ -196,7 +196,7 @@ type RetGlineData struct {
 
 func lookupGlineAPI(ip, network string) ([]RetGlineData, error) {
 	// Define the API endpoint template
-	baseURL := "http://127.0.0.1:2000/checkgline/%s/%s"
+	baseURL := "http://127.0.0.1:2000/glinelookup/%s/%s"
 	url := fmt.Sprintf(baseURL, network, ip)
 	//fmt.Printf("checkgline lookup via URL: %s\n", url)
 

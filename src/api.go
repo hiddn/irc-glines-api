@@ -45,8 +45,8 @@ func Api_init(config Configuration) *echo.Echo {
 
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
-	e.GET("/checkgline/:network/:ip", checkGlineApi)
-	e.GET("/glinelookup/:network", checkGlineOwnIPApi)
+	e.GET("/glinelookup/:network/:ip", glineLookupApi)
+	e.GET("/ismyipgline/:network", glineLookupOwnIPApi)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
@@ -59,18 +59,23 @@ func Api_init(config Configuration) *echo.Echo {
 }
 
 func isAPIOpen(c echo.Context) bool {
-	if c.Path() == "/glinelookup/:network" {
+	switch c.Path() {
+	case "/glinelookup/:network/:ip":
 		return true
+	case "/ismyipgline/:network":
+		return true
+	default:
+		return false
 	}
-	return false
 }
-func checkGlineApi(c echo.Context) error {
+
+func glineLookupApi(c echo.Context) error {
 	var in api_struct
 	err := c.Bind(&in)
 	return glineApi(c, in, err)
 }
 
-func checkGlineOwnIPApi(c echo.Context) error {
+func glineLookupOwnIPApi(c echo.Context) error {
 	var in api_struct
 	var in2 api_struct2
 	err := c.Bind(&in2)
