@@ -121,7 +121,7 @@ func requestRemGlineApi(c echo.Context) error {
 		)
 		autoremove := EvalRequest(retData)
 		if autoremove {
-			if RemoveGline(gline.Mask) == true {
+			if RemoveGline(in.Network, gline.Mask) {
 				retData.Msg = "Your G-line was removed successfully"
 			} else {
 				retData.Msg = "Error removing G-line. Please contact abuse@undernet.org with this message."
@@ -180,8 +180,64 @@ func EvalRequest(gline *RetApiData) bool {
 	return false
 }
 
-func RemoveGline(glineMask string) bool {
+func RemoveGline(network, glineMask string) bool {
 	// Remove the gline
+	// Define the API endpoint template
+	baseURL := "http://127.0.0.1:2000/api2/remgline/%s"
+	url := fmt.Sprintf(baseURL, network)
+
+	// API Key (Bearer token)
+	apiKey := config.ApiKey
+
+	// Create a new HTTP client with a timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second, // Set a timeout for the request
+	}
+
+	// Create the request body
+	requestBody, err := json.Marshal(map[string]string{
+		"glinemask": glineMask,
+		"network":   network,
+	})
+	if err != nil {
+		log.Println("Error marshalling request body:", err)
+		return false
+	}
+
+	// Create a new HTTP POST request
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(requestBody)))
+	if err != nil {
+		log.Println("Failed to create HTTP request:", err)
+		return false
+	}
+
+	// Add headers
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+apiKey)
+
+	// Perform the HTTP request
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("Failed to make HTTP request:", err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	// Check for a non-200 status code
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body) // Optionally read response body for debugging
+		log.Printf("API call failed with status %d: %s", resp.StatusCode, string(body))
+		return false
+	}
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Failed to read response body:", err)
+		return false
+	}
+
+	fmt.Printf("Debug: %s\n", body)
 	return true
 }
 
