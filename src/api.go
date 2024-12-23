@@ -3,6 +3,7 @@ package ircglineapi
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -40,6 +41,18 @@ type api_struct2 struct {
 	Network string `param:"network"`
 }
 
+type api_irccmd_struct struct {
+	Network                 string  `param:"network"`
+	Command                 string  `param:"command"`
+	RegexExpectedForSuccess *string `param:"regexexpectedforsuccess,omitempty"`
+}
+
+type api_remgline_struct struct {
+	Network                 string  `param:"network"`
+	GlineMask               string  `param:"glinemask"`
+	RegexExpectedForSuccess *string `param:"regexexpectedforsuccess,omitempty"`
+}
+
 func Api_init(config Configuration) *echo.Echo {
 	e := echo.New()
 
@@ -47,6 +60,8 @@ func Api_init(config Configuration) *echo.Echo {
 	e.Use(middleware.Logger())
 	e.GET("/api2/glinelookup/:network/:ip", glineLookupApi)
 	e.GET("/api2/ismyipgline/:network", glineLookupOwnIPApi)
+	e.POST("/api2/sendcommand/:network", sendCommandApi)
+	e.POST("/api2/remgline/:network", removeGlineApi)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
@@ -67,6 +82,40 @@ func isAPIOpen(c echo.Context) bool {
 	default:
 		return false
 	}
+}
+
+func removeGlineApi(c echo.Context) error {
+	var in api_remgline_struct
+	err := c.Bind(&in)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, "bad request")
+	}
+	s := servers.GetServerInfosByNetwork(in.Network)
+	if s == nil {
+		return c.JSON(http.StatusNotFound, "Network not found")
+	}
+	if !s.Conn.Connected() {
+		return c.JSON(http.StatusServiceUnavailable, "Server not connected")
+	}
+	s.sendCommandToOperServ(strings.Replace(s.Config.OperServRemglineCmd, "$glinemask", in.GlineMask, -1))
+	return c.JSON(http.StatusOK, "Command sent")
+}
+
+func sendCommandApi(c echo.Context) error {
+	var in api_irccmd_struct
+	err := c.Bind(&in)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, "bad request")
+	}
+	s := servers.GetServerInfosByNetwork(in.Network)
+	if s == nil {
+		return c.JSON(http.StatusNotFound, "Network not found")
+	}
+	if !s.Conn.Connected() {
+		return c.JSON(http.StatusServiceUnavailable, "Server not connected")
+	}
+	s.Conn.Raw(in.Command)
+	return c.JSON(http.StatusOK, "Command sent")
 }
 
 func glineLookupApi(c echo.Context) error {

@@ -24,6 +24,8 @@ type serverData struct {
 	NetworkName          string
 	LastGlineCmdIssuedTS int64
 	Cranger              cidranger.Ranger
+	LoggedInToOperServ   bool
+	LastLoginAttempt     int64
 	Quit                 chan bool
 }
 
@@ -38,13 +40,15 @@ func (s serversType) NewServerInfos(conn *irc.Conn, config *Configuration) *serv
 		Config:               config,
 		LastGlineCmdIssuedTS: 0,
 		Cranger:              cidranger.NewPCTrieRanger(),
+		LoggedInToOperServ:   false,
+		LastLoginAttempt:     0,
 	}
 	s[conn] = newData
 	return newData
 }
 
 func (s serversType) GetServerInfos(conn *irc.Conn) *serverData {
-	if data, ok := s[conn]; ok == true {
+	if data, ok := s[conn]; ok {
 		return data
 	}
 	return nil
@@ -82,9 +86,12 @@ func Irc_init(config *Configuration) *serverData {
 		})
 	c.HandleFunc(irc.PRIVMSG, handlePRIVMSG)
 	c.HandleFunc(irc.NOTICE, handleNOTICE)
+	c.HandleFunc(irc.JOIN, handleJOIN)
+	c.HandleFunc(irc.QUIT, handleQUIT)
 
 	c.HandleFunc("001", handle001)
 	c.HandleFunc("280", handleGline280)
+	c.HandleFunc("401", handle401NoSuchNick)
 
 	// Tell client to connect.
 	//if err := c.Connect(); err != nil {
@@ -143,6 +150,7 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 }
 
 func (s *serverData) Connect() {
+	s.LoggedInToOperServ = false
 	for {
 		if err := s.Conn.Connect(); err != nil {
 			log.Printf("Connection error: %s\nTrying again in %d seconds\n", err.Error(), s.Config.ReconnWaitTime)
@@ -187,11 +195,13 @@ func handleConnect(conn *irc.Conn, line *irc.Line) {
 	var cfg *Configuration
 	s := servers.GetServerInfos(conn)
 	cfg = s.Config
+	s.LoggedInToOperServ = true
 	for _, cmd := range cfg.ConnectCmds {
 		conn.Raw(cmd)
 	}
 	modeStr := fmt.Sprintf("mode %s +s +33280", conn.Me().Nick)
 	conn.Raw(modeStr)
+	conn.Raw(cfg.OperServLogin)
 	for _, c := range cfg.Channels {
 		conn.Join(c)
 	}
@@ -236,12 +246,36 @@ func handleGline280(conn *irc.Conn, line *irc.Line) {
 	//fmt.Println("280:", w[3], expireTS)
 }
 
+func handleJOIN(conn *irc.Conn, line *irc.Line) {
+	log.Println(line.Raw)
+	s := servers.GetServerInfos(conn)
+	w := strings.Split(line.Raw, " ")
+	nick := strings.Split(w[0][1:], "!")[0]
+	if nick == s.Config.OperServNick {
+		s.Conn.Raw(s.Config.OperServLogin)
+		s.LoggedInToOperServ = true
+	}
+	handleGNOTICE(line.Raw, w, s)
+}
+
+func handleQUIT(conn *irc.Conn, line *irc.Line) {
+	log.Println(line.Raw)
+	s := servers.GetServerInfos(conn)
+	w := strings.Split(line.Raw, " ")
+	nick := strings.Split(w[0][1:], "!")[0]
+	if nick == s.Config.OperServNick {
+		s.LoggedInToOperServ = false
+	}
+	handleGNOTICE(line.Raw, w, s)
+}
+
 func handleNOTICE(conn *irc.Conn, line *irc.Line) {
 	log.Println(line.Raw)
 	s := servers.GetServerInfos(conn)
 	w := strings.Split(line.Raw, " ")
 	handleGNOTICE(line.Raw, w, s)
 }
+
 func handleGNOTICE(line string, w []string, s *serverData) error {
 	var err error
 	var mask string
@@ -268,6 +302,9 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 		if len(w) >= 16 {
 			expireTSstr = w[15]
 			expireTSstr = RemoveLastChar(expireTSstr)
+			if len(w) > 16 {
+				reason = strings.Join(w[16:], " ")
+			}
 		} else {
 			out := fmt.Sprintf("Parse error: %s", line)
 			s.MsgMainChan(out)
@@ -421,6 +458,14 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 	return retErr
 }
 
+func handle401NoSuchNick(conn *irc.Conn, line *irc.Line) {
+	s := servers.GetServerInfos(conn)
+	log.Printf("No such nick/channel: %s\n", line.Args[1])
+	if line.Args[1] == s.Config.OperServNick {
+		s.LoggedInToOperServ = false
+	}
+}
+
 func handle001(conn *irc.Conn, line *irc.Line) {
 	s := servers.GetServerInfos(conn)
 	w := strings.Split(line.Raw, " ")
@@ -434,4 +479,12 @@ func (s *serverData) die() {
 	s.Conn.Raw("QUIT :Killed")
 	time.Sleep(1 * time.Second)
 	os.Exit(0)
+}
+
+func (s *serverData) sendCommandToOperServ(cmd string) {
+	if s.Config.AutologinIfOperServMissing && !s.LoggedInToOperServ && (time.Now().Unix()-s.LastLoginAttempt) > 120 {
+		s.LastLoginAttempt = time.Now().Unix()
+		s.Conn.Raw(s.Config.OperServLogin)
+	}
+	s.Conn.Privmsg(s.Config.OperServNick, cmd)
 }
