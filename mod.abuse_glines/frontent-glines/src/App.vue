@@ -6,7 +6,7 @@ import './style.css'
 
 const config = {
   network: 'Undernet',
-  glinelookup_url: '/glinelookup/:network/:ip',
+  glinelookup_url: '/api2/glinelookup/:network/:ip',
   api_key: import.meta.env.VITE_API_KEY
 }
 

@@ -6,8 +6,13 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/glinelookup': {
+      '/api2': {
         target: 'http://localhost:2000',
+        changeOrigin: true,
+        //rewrite: (path) => path.replace(/^\/api/, ''), // Optional
+      },
+      '/api': {
+        target: 'http://localhost:2001',
         changeOrigin: true,
         //rewrite: (path) => path.replace(/^\/api/, ''), // Optional
       },

@@ -69,7 +69,7 @@ func Api_init(conf Configuration) *echo.Echo {
 
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
-	e.GET("/requestrem", requestRemGlineApi)
+	e.GET("/api/requestrem", requestRemGlineApi)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
@@ -82,7 +82,7 @@ func Api_init(conf Configuration) *echo.Echo {
 }
 
 func isAPIOpen(c echo.Context) bool {
-	return c.Path() == "/requestrem"
+	return c.Path() == "/api/requestrem"
 }
 
 func requestRemGlineApi(c echo.Context) error {
@@ -196,7 +196,7 @@ type RetGlineData struct {
 
 func lookupGlineAPI(ip, network string) ([]RetGlineData, error) {
 	// Define the API endpoint template
-	baseURL := "http://127.0.0.1:2000/glinelookup/%s/%s"
+	baseURL := "http://127.0.0.1:2000/api2/glinelookup/%s/%s"
 	url := fmt.Sprintf(baseURL, network, ip)
 	//fmt.Printf("checkgline lookup via URL: %s\n", url)
 

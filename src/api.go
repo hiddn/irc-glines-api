@@ -45,8 +45,8 @@ func Api_init(config Configuration) *echo.Echo {
 
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
-	e.GET("/glinelookup/:network/:ip", glineLookupApi)
-	e.GET("/ismyipgline/:network", glineLookupOwnIPApi)
+	e.GET("/api2/glinelookup/:network/:ip", glineLookupApi)
+	e.GET("/api2/ismyipgline/:network", glineLookupOwnIPApi)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
@@ -60,9 +60,9 @@ func Api_init(config Configuration) *echo.Echo {
 
 func isAPIOpen(c echo.Context) bool {
 	switch c.Path() {
-	case "/glinelookup/:network/:ip":
+	case "/api2/glinelookup/:network/:ip":
 		return true
-	case "/ismyipgline/:network":
+	case "/api2/ismyipgline/:network":
 		return true
 	default:
 		return false
