@@ -152,6 +152,8 @@ func glineApi(c echo.Context, in api_struct, err error) error {
 			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.IsGlineActive())
 			list = append(list, e)
 		}
+	} else {
+		return c.JSON(http.StatusBadRequest, "Invalid IP")
 	}
 	return c.JSON(http.StatusOK, &list)
 }
