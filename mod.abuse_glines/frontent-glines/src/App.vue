@@ -1,6 +1,6 @@
 // src/App.vue
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import axios from 'axios'
 import './style.css'
 
@@ -12,14 +12,25 @@ const config = {
 
 const myip = ref('')
 const ip = ref('')
-const error = ref('')
+const errormsg = ref('')
 const glines = ref([])
+
+const showRequestForm = ref(false)
+const nickname = ref('')
+const realname = ref('')
+const email = ref('')
+const message = ref('')
+
+const isSubmitDisabled = computed(() => {
+  return !nickname.value || !realname.value || !email.value || !message.value
+})
 
 // Try to get user's IP address
 const getUserIP = async () => {
   try {
     const response = await axios.get('https://api.ipify.org?format=json')
     myip.value = response.data.ip
+    ip.value = response.data.ip
   } catch (error) {
     console.error('Failed to get user IP:', error)
   }
@@ -28,7 +39,7 @@ const getUserIP = async () => {
 const lookupGline = async () => {
   if (!ip.value) return
   
-  error.value = ''
+  errormsg.value = ''
   const url = config.glinelookup_url
     .replace(':network', config.network.toLowerCase())
     .replace(':ip', ip.value)
@@ -43,11 +54,40 @@ const lookupGline = async () => {
     glines.value = response.data
 
     if (Array.isArray(response.data) && response.data.length === 0) {
-      error.value = 'No Glines found'
+      errormsg.value = 'No Glines found'
     }
+
   } catch (error) {
-    error.value = 'Failed to lookup Gline'
+    if (error.response && error.response.status === 400) {
+      errormsg.value = 'Invalid IP address'
+      return
+    }
+    errormsg.value = 'API call error ' + error.response.status + ': ' + error.response.data
+    //errormsg.value = 'Failed to lookup Gline: ' + error.message
     console.error('Failed to lookup Gline:', error)
+  }
+}
+
+const requestRemoval = async () => {
+  const requestData = {
+    network: config.network,
+    ip: ip.value,
+    nickname: nickname.value,
+    realname: realname.value,
+    email: email.value,
+    message: message.value
+  }
+
+  try {
+    const response = await axios.post('/api/requestrem', requestData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.api_key}`
+      }
+    })
+    console.log('Removal request response:', response.data)
+  } catch (error) {
+    console.error('Failed to request removal:', error)
   }
 }
 
@@ -63,7 +103,7 @@ getUserIP()
 <template>
   <div class="container mx-auto px-4 py-8">
     <h1>Gline Lookup</h1>
-    <p>Your IP: {{ myip }}</p>
+    <!--p>Your IP: {{ myip }}</p-->
     <div class="input-container">
       <label class="label">IP address:</label>
       <input 
@@ -80,7 +120,7 @@ getUserIP()
       </button>
     </div>
     
-    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="errormsg" class="error">{{ errormsg }}</p>
     
     <div v-if="glines.length > 0" class="table-container">
       <table class="table-auto">
@@ -106,6 +146,38 @@ getUserIP()
           </tr>
         </tbody>
       </table>
+      <button 
+        v-if="!showRequestForm"
+        @click="showRequestForm = true"
+        class="button mt-4"
+      >
+        Request removal
+      </button>
+      <div v-if="showRequestForm" class="request-form mt-4">
+        <div class="input-container">
+          <label class="label">Nickname:</label>
+          <input type="text" v-model="nickname" class="input">
+        </div>
+        <div class="input-container">
+          <label class="label">Real Name:</label>
+          <input type="text" v-model="realname" class="input">
+        </div>
+        <div class="input-container">
+          <label class="label">Email:</label>
+          <input type="email" v-model="email" class="input">
+        </div>
+        <div class="input-container">
+          <label class="label">Message:</label>
+          <textarea v-model="message" class="input"></textarea>
+        </div>
+        <button 
+          @click="requestRemoval"
+          :disabled="isSubmitDisabled"
+          class="button mt-4"
+        >
+          Submit
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -207,6 +279,22 @@ const formatReason = (reason) => {
 
 .table-auto tbody tr:nth-child(even) {
   background-color: #edf2f7;
+}
+
+.request-form .input-container {
+  margin-bottom: 1rem;
+}
+
+.request-form .input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.25rem;
+}
+
+.request-form .button:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
 }
 </style>
 
