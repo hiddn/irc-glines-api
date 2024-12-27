@@ -27,4 +27,6 @@ type Configuration struct {
 	Rules              []rules
 	Recaptchakey       string
 	Recaptchasecretkey string
+	Smtp               SmtpConfig
+	FromEmail          string
 }

@@ -9,6 +9,11 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+type ApiData struct {
+	Config       Configuration
+	EchoInstance *echo.Echo
+}
+
 type RetGlineData struct {
 	Active           bool   `json:"active"`
 	Mask             string `json:"mask"`
@@ -55,7 +60,6 @@ type api_remgline_struct struct {
 
 func Api_init(config Configuration) *echo.Echo {
 	e := echo.New()
-
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
 	e.GET("/api2/glinelookup/:network/:ip", glineLookupApi)
