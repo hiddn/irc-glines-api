@@ -29,4 +29,5 @@ type Configuration struct {
 	Recaptchasecretkey string
 	Smtp               SmtpConfig
 	FromEmail          string
+	TestEmail          string
 }

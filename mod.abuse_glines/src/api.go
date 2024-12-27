@@ -71,7 +71,7 @@ type RetApiData struct {
 	LastModTS        int64  `json:"lastmodts"`
 	HoursUntilExpire int64  `json:"hoursuntilexpire"`
 	Reason           string `json:"reason"`
-	Ip               string `json:"ip"`
+	IP               string `json:"ip"`
 	AutoRemove       bool   `json:"autoremove"`
 	Msg              string `json:"msg"`
 }
@@ -88,7 +88,7 @@ func newRetApiData(mask, reason, ip, msg string, expireTS, lastModTS, hoursUntil
 		LastModTS:        lastModTS,
 		HoursUntilExpire: hoursUntilExpire,
 		Reason:           reason,
-		Ip:               ip,
+		IP:               ip,
 		AutoRemove:       isReqAccepted,
 		Msg:              msg,
 	}
@@ -297,7 +297,7 @@ func (a *ApiData) EvalRequest(gline *RetApiData) bool {
 					gline.Msg = "Error parsing CIDR. Please report to abuse@undernet.org"
 					continue
 				}
-				ip := net.ParseIP(gline.Ip)
+				ip := net.ParseIP(gline.IP)
 				return cidr.Contains(ip) && rule.Autoremove
 			} else {
 				return rule.Autoremove
