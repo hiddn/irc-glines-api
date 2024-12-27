@@ -194,7 +194,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				ce.Task.Done()
 			} else {
 				log.Printf("Error sending email: %s\n", err)
-				ce.Task.SetMessage("Error sending confirmation email to %s. Please try again later or email abuse@undernet.org with this message if it fails again.")
+				ce.Task.SetMessage(fmt.Sprintf("Error sending confirmation email to %s. Please try again later or email %s with this message if it fails again.", ce.EmailAddr, a.Config.AbuseEmail))
 				ce.Task.Cancel()
 			}
 		}()
@@ -219,11 +219,11 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				if a.RemoveGline(in.Network, gline.Mask) {
 					retData.Msg = "Your G-line was removed successfully"
 				} else {
-					retData.Msg = "Error removing G-line. Please contact abuse@undernet.org with this message."
+					retData.Msg = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
 				}
 			}
 			if retData.Msg == "" {
-				retData.Msg = "I don't know what to do with your request. Contact abuse@undernet.org with this message."
+				retData.Msg = fmt.Sprintf("I don't know what to do with your request. Contact %s with this message.", a.Config.AbuseEmail)
 			}
 			list = append(list, retData)
 		}
@@ -248,12 +248,12 @@ func (a *ApiData) confirmEmailAPI(c echo.Context) error {
 	}
 	ce, ok := a.ConfirmEmailMap[in.ConfirmString]
 	if !ok {
-		return c.JSON(http.StatusNotImplemented, "Confirm string not found or expired.")
+		return c.JSON(http.StatusNotImplemented, fmt.Sprintf("Confirm string not found or expired. Please contact %s.", a.Config.AbuseEmail))
 	}
 	// Necessary, in case a.IsTimeToCheckExpiredEntries() returned false but that this entry is still expired
 	if ce.Expired() {
 		delete(a.ConfirmEmailMap, in.ConfirmString)
-		return c.JSON(http.StatusNotImplemented, "Confirm string not found or expired.")
+		return c.JSON(http.StatusNotImplemented, fmt.Sprintf("Confirm string not found or expired. Please contact %s.", a.Config.AbuseEmail))
 	}
 	if !slices.Contains(a.Config.Networks, strings.ToLower(ce.Network)) {
 		return c.JSON(http.StatusNotFound, "Network not found")
@@ -277,24 +277,24 @@ func (a *ApiData) EvalRequest(gline *RetApiData) bool {
 		matched, err := regexp.MatchString(rule.RegexReason, gline.Reason)
 		if err != nil {
 			log.Println("Error matching regex:", err)
-			gline.Msg = "Error matching regex. Please report to abuse@undernet.org"
+			gline.Msg = fmt.Sprintf("Error matching regex. Please report to %s", a.Config.AbuseEmail)
 			continue
 		}
 		if matched {
-			gline.Msg = "Please contact abuse@undernet.org for this gline"
+			gline.Msg = fmt.Sprintf("Please contact %s for this gline", a.Config.AbuseEmail)
 			fmt.Printf("Debug: Matched rule: %v\n", rule)
 			if rule.MustBeSameIP {
 				parts := strings.Split(gline.Mask, "@")
 				if len(parts) != 2 {
 					log.Printf("Error parsing gline mask: %s\n", gline.Mask)
-					gline.Msg = "Error parsing gline mask: %s. Please report to abuse@undernet.org"
+					gline.Msg = fmt.Sprintf("Error parsing gline mask: %s. Please report to %s", gline.Mask, a.Config.AbuseEmail)
 					return false
 				}
 				glineIP := parts[1]
 				_, cidr, err := net.ParseCIDR(glineIP)
 				if err != nil {
 					log.Println("Error parsing CIDR:", err)
-					gline.Msg = "Error parsing CIDR. Please report to abuse@undernet.org"
+					gline.Msg = fmt.Sprintf("Error parsing CIDR. Please report to %s", a.Config.AbuseEmail)
 					continue
 				}
 				ip := net.ParseIP(gline.IP)
@@ -304,7 +304,7 @@ func (a *ApiData) EvalRequest(gline *RetApiData) bool {
 			}
 		}
 	}
-	gline.Msg = "No action supported on this app for this gline right now. Contact abuse@undernet.org."
+	gline.Msg = fmt.Sprintf("No action supported on this app for this gline right now. Contact %s.", a.Config.AbuseEmail)
 	return false
 }
 
