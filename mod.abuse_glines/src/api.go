@@ -204,6 +204,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		return c.JSON(http.StatusOK, fmt.Sprintf("Sending email... Check your inbox for %s", ce.EmailAddr))
 	} else {
 		// Email is confirmed
+		emailToAbuseRequired := false
 		list := make([]*RetApiData, 0, 10)
 		for _, gline := range RetGlines {
 			retData := newRetApiData(
@@ -222,15 +223,57 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				if a.RemoveGline(in.Network, gline.Mask) {
 					retData.Msg = "Your G-line was removed successfully"
 				} else {
+					emailToAbuseRequired = true
 					retData.Msg = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
 				}
+			} else {
+				emailToAbuseRequired = true
 			}
 			if retData.Msg == "" {
 				retData.Msg = fmt.Sprintf("I don't know what to do with your request. Contact %s with this message.", a.Config.AbuseEmail)
 			}
 			list = append(list, retData)
 		}
-
+		if emailToAbuseRequired {
+			var emailContent string
+			emailContent = "<html><body>"
+			emailContent += "<p>Please review the following G-line removal request:</p>"
+			emailContent += fmt.Sprintf("<p>Link: <a href=\"%s/lookup/%s\">%s/lookup/%s</a></p>", a.Config.URL, in.IP, a.Config.URL, in.IP)
+			emailContent += "<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\" style=\"border-collapse: collapse;\">"
+			emailContent += "<tr><th>Mask</th><th>Reason</th><th>IP</th><th>ExpireTS</th><th>LastModTS</th><th>HoursUntilExpire</th><th>Active</th><th>AutoRemove</th><th>Message</th></tr>"
+			for _, gline := range list {
+				expireTSColor := "black"
+				lastModTSColor := "black"
+				if gline.ExpireTS <= time.Now().Unix() || !gline.Active {
+					expireTSColor = "red"
+					lastModTSColor = "red"
+				} else {
+					expireTSColor = "gray"
+					lastModTSColor = "gray"
+				}
+				emailContent += fmt.Sprintf(
+					"<tr><td>%s</td><td>%s</td><td>%s</td><td style=\"color:%s;\">%s (%s)</td><td style=\"color:%s;\">%s (%s)</td><td>%d</td><td>%t</td><td>%t</td><td>%s</td></tr>",
+					gline.Mask,
+					gline.Reason,
+					gline.IP,
+					expireTSColor,
+					time.Unix(gline.ExpireTS, 0).UTC().Format(time.RFC3339),
+					time.Duration(gline.ExpireTS-time.Now().Unix())*time.Second,
+					lastModTSColor,
+					time.Unix(gline.LastModTS, 0).UTC().Format(time.RFC3339),
+					time.Duration(gline.LastModTS-time.Now().Unix())*time.Second,
+					gline.HoursUntilExpire,
+					gline.Active,
+					gline.AutoRemove,
+					gline.Msg,
+				)
+			}
+			emailContent += "</table></body></html>"
+			err = SendEmail(a.Config.AbuseEmail, a.Config.FromEmail, "G-line removal request", emailContent, a.Config.Smtp, true)
+			if err != nil {
+				log.Printf("Error sending email to abuse: %s\n", err)
+			}
+		}
 		return c.JSON(http.StatusOK, &list)
 	}
 }

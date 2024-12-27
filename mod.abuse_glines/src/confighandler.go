@@ -31,4 +31,6 @@ type Configuration struct {
 	AbuseEmail         string
 	FromEmail          string
 	TestEmail          string
+	URL                string
+	Testmode           bool
 }
