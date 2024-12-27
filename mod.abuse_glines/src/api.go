@@ -105,6 +105,9 @@ type api_struct struct {
 }
 
 func Api_init(conf Configuration) *echo.Echo {
+	if conf.Testmode {
+		conf.AbuseEmail = conf.TestEmail
+	}
 	e := echo.New()
 	a := &ApiData{
 		Config:       conf,
@@ -311,6 +314,9 @@ func (a *ApiData) EvalRequest(gline *RetApiData) bool {
 func (a *ApiData) RemoveGline(network, glineMask string) bool {
 	// Remove the gline
 	// Define the API endpoint template
+	if a.Config.Testmode {
+		return true
+	}
 	baseURL := "http://127.0.0.1:2000/api2/remgline/%s"
 	url := fmt.Sprintf(baseURL, network)
 
