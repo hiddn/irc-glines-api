@@ -210,12 +210,13 @@ getUserIP()
             <td class="table-cell">{{ gline.mask }}</td>
             <td class="table-cell">{{ formatReason(gline.reason) }}</td>
             <td class="table-cell">
-              {{ formatDate(gline.expirets) + '\n' + (gline.expirets * 1000 > Date.now() 
-                ? `Expires in ${formatDuration(gline.expirets)}`
-                : `Expired ${formatDuration(gline.expirets)} ago`)
-              }}
+              {{ formatDate(gline.expirets) }}
+              <span v-html="'<br/>'"></span>
+              {{ gline.expirets * 1000 > Date.now() 
+                  ? `Expires in ${formatDuration(gline.expirets)}`
+                  : `Expired ${formatDuration(gline.expirets)} ago` }}
             </td>
-            <td v-if="gotGlinesResults" class="table-cell">{{ gline.message }}</td>
+            <td v-if="gotGlinesResults" class="table-cell gline-results">{{ gline.message }}</td>
             <!--td class="table-cell">{{ formatDate(gline.expirets) }}</td-->
           </tr>
         </tbody>
@@ -389,6 +390,10 @@ const formatReason = (reason) => {
   padding: 1rem;
   border-radius: 0.25rem;
   margin-bottom: 1rem;
+}
+.gline-results {
+  color: black;
+  background-color: yellow;
 }
 </style>
 
