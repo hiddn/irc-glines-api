@@ -105,11 +105,12 @@ type api_requestrem_struct struct {
 }
 
 type api_requestrem_ret_struct struct {
-	UUID    string        `json:"uuid"`
-	Network string        `json:"network"`
-	IP      string        `json:"ip"`
-	Message string        `json:"message"`
-	Glines  []*RetApiData `json:"glines"`
+	UUID                string        `json:"uuid"`
+	Network             string        `json:"network"`
+	IP                  string        `json:"ip"`
+	Message             string        `json:"message"`
+	RequestSentViaEmail bool          `json:"request_sent_via_email"`
+	Glines              []*RetApiData `json:"glines"`
 }
 
 func Api_init(conf Configuration) *echo.Echo {
@@ -158,12 +159,14 @@ func isAPIOpen(c echo.Context) bool {
 func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	var in api_requestrem_struct
 	err := c.Bind(&in)
+	var emailToAbuseRequired bool
 
 	ret := &api_requestrem_ret_struct{
-		UUID:    in.UUID,
-		Network: in.Network,
-		IP:      in.IP,
-		Glines:  []*RetApiData{},
+		UUID:                in.UUID,
+		Network:             in.Network,
+		IP:                  in.IP,
+		RequestSentViaEmail: false,
+		Glines:              []*RetApiData{},
 	}
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, "bad request")
@@ -236,7 +239,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	} else {
 		// Email is confirmed. Overwrite the user-supplied email with the one that was confirmed before
 		in.Email = email
-		emailToAbuseRequired := false
+		emailToAbuseRequired = false
 		list := make([]*RetApiData, 0, len(RetGlines))
 		for _, gline := range RetGlines {
 			retData := newRetApiData(
@@ -317,6 +320,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 			}
 		}
 		ret.Glines = list
+		ret.RequestSentViaEmail = emailToAbuseRequired
 		return c.JSON(http.StatusOK, ret)
 	}
 }
