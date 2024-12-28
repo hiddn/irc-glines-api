@@ -73,14 +73,14 @@ type RetApiData struct {
 	Reason           string `json:"reason"`
 	IP               string `json:"ip"`
 	AutoRemove       bool   `json:"autoremove"`
-	Msg              string `json:"msg"`
+	Message          string `json:"message"`
 }
 
 type RetApiDatas struct {
 	RetApiData []RetApiData `json:"glines"`
 }
 
-func newRetApiData(mask, reason, ip, msg string, expireTS, lastModTS, hoursUntilExpire int64, active, isReqAccepted bool) *RetApiData {
+func newRetApiData(mask, reason, ip, message string, expireTS, lastModTS, hoursUntilExpire int64, active, isReqAccepted bool) *RetApiData {
 	return &RetApiData{
 		Active:           active,
 		Mask:             mask,
@@ -90,18 +90,26 @@ func newRetApiData(mask, reason, ip, msg string, expireTS, lastModTS, hoursUntil
 		Reason:           reason,
 		IP:               ip,
 		AutoRemove:       isReqAccepted,
-		Msg:              msg,
+		Message:          message,
 	}
 }
 
-type api_struct struct {
-	UUID     string `param:"uuid"`
-	Network  string `param:"network"`
-	IP       string `param:"ip"`
-	Nickname string `param:"nickname"`
-	RealName string `param:"realname"`
-	Email    string `param:"email"`
-	Message  string `param:"message"`
+type api_requestrem_struct struct {
+	UUID        string `json:"uuid"`
+	Network     string `json:"network"`
+	IP          string `json:"ip"`
+	Nickname    string `json:"nickname"`
+	RealName    string `json:"realname"`
+	Email       string `json:"email"`
+	UserMessage string `json:"user_message"`
+}
+
+type api_requestrem_ret_struct struct {
+	UUID    string        `json:"uuid"`
+	Network string        `json:"network"`
+	IP      string        `json:"ip"`
+	Message string        `json:"message"`
+	Glines  []*RetApiData `json:"glines"`
 }
 
 func Api_init(conf Configuration) *echo.Echo {
@@ -121,8 +129,8 @@ func Api_init(conf Configuration) *echo.Echo {
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
 	e.POST("/api/requestrem", a.requestRemGlineApi)
-	e.GET("/confirmemail/:confirmstring", a.confirmEmailAPI)
-	e.GET("/tasks/:uuid", a.TasksData.GetTasksStatus_api)
+	e.GET("/api/confirmemail/:confirmstring", a.confirmEmailAPI)
+	e.GET("/api/tasks/:uuid", a.TasksData.GetTasksStatus_api)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
@@ -135,13 +143,28 @@ func Api_init(conf Configuration) *echo.Echo {
 }
 
 func isAPIOpen(c echo.Context) bool {
-	return c.Path() == "/api/requestrem"
+	switch c.Path() {
+	case "/api/requestrem":
+		return true
+	case "/api/confirmemail/:confirmstring":
+		return true
+	case "/api/tasks/:uuid":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *ApiData) requestRemGlineApi(c echo.Context) error {
-	var in api_struct
+	var in api_requestrem_struct
 	err := c.Bind(&in)
 
+	ret := &api_requestrem_ret_struct{
+		UUID:    in.UUID,
+		Network: in.Network,
+		IP:      in.IP,
+		Glines:  []*RetApiData{},
+	}
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, "bad request")
 	}
@@ -166,13 +189,21 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	} else {
 		UUID = in.UUID
 	}
+	ret.UUID = UUID
 
+	if a.Config.Testmode {
+		in.Email = a.Config.TestEmail
+	}
 	emailConfirmed := false
-	for _, task := range a.TasksData.GetTasks(UUID) {
+	email := ""
+	for _, task := range a.TasksData.GetAllTasksByUUID(UUID) {
 		if task.TaskType == "confirmemail" {
+			fmt.Printf("Debug: email = %v\nDebug: task.Data = %v\n", in.Email, task.Data)
 			if task.Data.(*confirmemail_struct).EmailAddr == in.Email {
-				if task.CompletedTS > 0 && time.Now().Unix()-task.CompletedTS < 86400 {
+				if !task.IsExpired() {
+					fmt.Printf("Debug: Confirmed email found: %s\n", in.Email)
 					emailConfirmed = true
+					email = task.DataVisibleToUser
 					break
 				}
 			}
@@ -180,9 +211,10 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	}
 	if !emailConfirmed {
 		ce := newConfirmEmailStruct(in.Network, in.IP, in.Email, UUID)
-		confirmLink := fmt.Sprintf("/confirmemail/%s", url.PathEscape(ce.ConfirmString))
+		confirmLink := fmt.Sprintf("%s/api/confirmemail/%s", a.Config.URL, url.PathEscape(ce.ConfirmString))
 		ce.Task = a.TasksData.AddTask(UUID, "confirmemail")
 		ce.Task.SetData(ce)
+		ce.Task.DataVisibleToUser = in.Email
 		body := fmt.Sprintf("Hi,\n\nIn order to complete the gline removal request on %s, you need to click this link: %s\n\nAbuse's self gline-removal system", in.Network, confirmLink)
 		if !IsEmailValid(ce.EmailAddr) {
 			log.Printf("Invalid email address: %s\n", ce.EmailAddr)
@@ -190,22 +222,22 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		}
 		go func() {
 			ce.Task.Start()
-			ce.Task.SetProgress(20)
 			err = SendEmail(ce.EmailAddr, a.Config.FromEmail, "Email confirmation required", body, a.Config.Smtp, false)
 			if err == nil {
 				a.ConfirmEmailMap[ce.ConfirmString] = ce
-				ce.Task.Done()
+				ce.Task.SetProgress(50, "Email confirmation sent")
 			} else {
 				log.Printf("Error sending email: %s\n", err)
-				ce.Task.SetMessage(fmt.Sprintf("Error sending confirmation email to %s. Please try again later or email %s with this message if it fails again.", ce.EmailAddr, a.Config.AbuseEmail))
-				ce.Task.Cancel()
+				ce.Task.Cancel(fmt.Sprintf("Error sending confirmation email to %s. Please try again later or email %s with this message if it fails again.", ce.EmailAddr, a.Config.AbuseEmail))
 			}
 		}()
-		return c.JSON(http.StatusOK, fmt.Sprintf("Sending email... Check your inbox for %s", ce.EmailAddr))
+		ret.Message = fmt.Sprintf("Sending email... Check your inbox (%s)", ce.EmailAddr)
+		return c.JSON(http.StatusAccepted, ret)
 	} else {
-		// Email is confirmed
+		// Email is confirmed. Overwrite the user-supplied email with the one that was confirmed before
+		in.Email = email
 		emailToAbuseRequired := false
-		list := make([]*RetApiData, 0, 10)
+		list := make([]*RetApiData, 0, len(RetGlines))
 		for _, gline := range RetGlines {
 			retData := newRetApiData(
 				gline.Mask,
@@ -221,16 +253,16 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 			autoremove := a.EvalRequest(retData)
 			if autoremove {
 				if a.RemoveGline(in.Network, gline.Mask) {
-					retData.Msg = "Your G-line was removed successfully"
+					retData.Message = "Your G-line was removed successfully"
 				} else {
 					emailToAbuseRequired = true
-					retData.Msg = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
+					retData.Message = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
 				}
 			} else {
 				emailToAbuseRequired = true
 			}
-			if retData.Msg == "" {
-				retData.Msg = fmt.Sprintf("I don't know what to do with your request. Contact %s with this message.", a.Config.AbuseEmail)
+			if retData.Message == "" {
+				retData.Message = fmt.Sprintf("I don't know what to do with your request. Contact %s with this message.", a.Config.AbuseEmail)
 			}
 			list = append(list, retData)
 		}
@@ -265,7 +297,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 					gline.HoursUntilExpire,
 					gline.Active,
 					gline.AutoRemove,
-					gline.Msg,
+					gline.Message,
 				)
 			}
 			emailContent += "</table></body></html>"
@@ -274,7 +306,8 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				log.Printf("Error sending email to abuse: %s\n", err)
 			}
 		}
-		return c.JSON(http.StatusOK, &list)
+		ret.Glines = list
+		return c.JSON(http.StatusOK, ret)
 	}
 }
 
@@ -294,53 +327,61 @@ func (a *ApiData) confirmEmailAPI(c echo.Context) error {
 	}
 	ce, ok := a.ConfirmEmailMap[in.ConfirmString]
 	if !ok {
-		return c.JSON(http.StatusNotImplemented, fmt.Sprintf("Confirm string not found or expired. Please contact %s.", a.Config.AbuseEmail))
+		return c.JSON(http.StatusNotImplemented, "Confirm string not found or expired. Try again.")
 	}
 	// Necessary, in case a.IsTimeToCheckExpiredEntries() returned false but that this entry is still expired
 	if ce.Expired() {
 		delete(a.ConfirmEmailMap, in.ConfirmString)
-		return c.JSON(http.StatusNotImplemented, fmt.Sprintf("Confirm string not found or expired. Please contact %s.", a.Config.AbuseEmail))
+		return c.JSON(http.StatusNotImplemented, "Confirm string not found or expired. Try again.")
 	}
 	if !slices.Contains(a.Config.Networks, strings.ToLower(ce.Network)) {
 		return c.JSON(http.StatusNotFound, "Network not found")
 	}
 
-	ce.Task.SetMessage("Email confirmed.")
-	ce.Task.Done()
+	// Only keep one completed confirmed email task active at all times
+	for _, task := range a.TasksData.GetAllTasksByUUID(ce.Task.UUID) {
+		if task.TaskType == "confirmemail" {
+			if task.TaskID != ce.Task.TaskID {
+				task.Cancel("Email confirmation activated for taskid " + ce.Task.TaskID + "and email " + ce.EmailAddr)
+			}
+		}
+	}
+
+	ce.Task.Done("Email confirmed.")
 	return c.HTML(http.StatusOK, "Your email is confirmed.<br><br>You can close this tab and go back to the abuse-glines web application.")
 }
 
 // Returns true if the gline is being auto-removed
 func (a *ApiData) EvalRequest(gline *RetApiData) bool {
 	if gline.ExpireTS <= time.Now().Unix() {
-		gline.Msg = "Gline already expired"
+		gline.Message = "Gline already expired"
 		return false
 	} else if !gline.Active {
-		gline.Msg = "Gline is not active"
+		gline.Message = "Gline is not active"
 		return false
 	}
 	for _, rule := range a.Config.Rules {
 		matched, err := regexp.MatchString(rule.RegexReason, gline.Reason)
 		if err != nil {
 			log.Println("Error matching regex:", err)
-			gline.Msg = fmt.Sprintf("Error matching regex. Please report to %s", a.Config.AbuseEmail)
+			gline.Message = fmt.Sprintf("Error matching regex. Please report to %s", a.Config.AbuseEmail)
 			continue
 		}
 		if matched {
-			gline.Msg = fmt.Sprintf("Please contact %s for this gline", a.Config.AbuseEmail)
+			gline.Message = fmt.Sprintf("Please contact %s for this gline", a.Config.AbuseEmail)
 			fmt.Printf("Debug: Matched rule: %v\n", rule)
 			if rule.MustBeSameIP {
 				parts := strings.Split(gline.Mask, "@")
 				if len(parts) != 2 {
 					log.Printf("Error parsing gline mask: %s\n", gline.Mask)
-					gline.Msg = fmt.Sprintf("Error parsing gline mask: %s. Please report to %s", gline.Mask, a.Config.AbuseEmail)
+					gline.Message = fmt.Sprintf("Error parsing gline mask: %s. Please report to %s", gline.Mask, a.Config.AbuseEmail)
 					return false
 				}
 				glineIP := parts[1]
 				_, cidr, err := net.ParseCIDR(glineIP)
 				if err != nil {
 					log.Println("Error parsing CIDR:", err)
-					gline.Msg = fmt.Sprintf("Error parsing CIDR. Please report to %s", a.Config.AbuseEmail)
+					gline.Message = fmt.Sprintf("Error parsing CIDR. Please report to %s", a.Config.AbuseEmail)
 					continue
 				}
 				ip := net.ParseIP(gline.IP)
@@ -350,7 +391,7 @@ func (a *ApiData) EvalRequest(gline *RetApiData) bool {
 			}
 		}
 	}
-	gline.Msg = fmt.Sprintf("No action supported on this app for this gline right now. Contact %s.", a.Config.AbuseEmail)
+	gline.Message = fmt.Sprintf("No action supported on this app for this gline right now. Contact %s.", a.Config.AbuseEmail)
 	return false
 }
 
@@ -492,7 +533,7 @@ func RandStringBytesRmndr(n int) string {
 }
 
 func (ce *confirmemail_struct) Expired() bool {
-	return ce.ExpireTS > time.Now().Unix()
+	return ce.ExpireTS < time.Now().Unix()
 }
 
 func (a *ApiData) IsTimeToCheckExpiredEntries() bool {
