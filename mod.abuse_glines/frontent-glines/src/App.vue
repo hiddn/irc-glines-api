@@ -118,16 +118,17 @@ const requestRemoval = async () => {
       errormsg.value = response.data.message
       isSubmitEnabled.value = true
       startTasks()
-      /*if (response.data.includes('uuid')) {
-        uuid.value = response.data.split(' ')[1]
-      }*/
     }
     else if (response.status === 200) {
       //removalResponse.value = response.data.glines
+      errormsg.value = ''
       glines.value = response.data.glines
       gotGlinesResults.value = true
       isSubmitEnabled.value = false
       showRequestForm.value = false
+      if (response.data.request_sent_via_email == true) {
+        errormsg.value = 'Removal request sent via email to the Abuse Team.'
+      }
     }
     console.log('Removal request response:', response.data)
   } catch (error) {
@@ -153,7 +154,7 @@ const GetTasks = async () => {
         if (task.progress === 100) {
           emailConfirmed.value = task.data
           console.log('Email confirmed:', emailConfirmed.value)
-          errormsg.value = 'Email confirmed'
+          errormsg.value = 'Email confirmed. Submitting removal request...'
           requestRemoval()
           stopTasks()
         }
@@ -359,6 +360,7 @@ const formatReason = (reason) => {
 .table-cell {
   border: 1px solid #e2e8f0;
   padding: 0.5rem;
+  text-align: left;
 }
 
 .table-auto tbody tr:nth-child(even) {
