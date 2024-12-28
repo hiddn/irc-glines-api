@@ -250,19 +250,29 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				gline.Active,
 				false,
 			)
-			autoremove := a.EvalRequest(retData)
-			if autoremove {
-				if a.RemoveGline(in.Network, gline.Mask) {
-					retData.Message = "Your G-line was removed successfully"
+			isGlineActive := true
+			if gline.ExpireTS <= time.Now().Unix() {
+				retData.Message = "Gline already expired"
+				isGlineActive = false
+			} else if !gline.Active {
+				retData.Message = "Gline is not active"
+				isGlineActive = false
+			}
+			if isGlineActive {
+				autoremove := a.CanIAutoRemoveGline(retData)
+				if autoremove {
+					if a.RemoveGline(in.Network, gline.Mask) {
+						retData.Message = "Your G-line was removed successfully"
+					} else {
+						emailToAbuseRequired = true
+						retData.Message = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
+					}
 				} else {
 					emailToAbuseRequired = true
-					retData.Message = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
 				}
-			} else {
-				emailToAbuseRequired = true
-			}
-			if retData.Message == "" {
-				retData.Message = fmt.Sprintf("I don't know what to do with your request. Contact %s with this message.", a.Config.AbuseEmail)
+				if retData.Message == "" {
+					retData.Message = fmt.Sprintf("I don't know what to do with your request. Contact %s with this message.", a.Config.AbuseEmail)
+				}
 			}
 			list = append(list, retData)
 		}
@@ -352,7 +362,7 @@ func (a *ApiData) confirmEmailAPI(c echo.Context) error {
 }
 
 // Returns true if the gline is being auto-removed
-func (a *ApiData) EvalRequest(gline *RetApiData) bool {
+func (a *ApiData) CanIAutoRemoveGline(gline *RetApiData) bool {
 	if gline.ExpireTS <= time.Now().Unix() {
 		gline.Message = "Gline already expired"
 		return false
