@@ -138,6 +138,7 @@ func glineLookupOwnIPApi(c echo.Context) error {
 }
 
 func glineApi(c echo.Context, in api_struct, err error) error {
+	var list []*RetGlineData
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, "bad request")
 	}
@@ -146,8 +147,8 @@ func glineApi(c echo.Context, in api_struct, err error) error {
 	if s == nil {
 		return c.JSON(http.StatusNotFound, "Network not found")
 	}
-	list := make([]*RetGlineData, 0, 10)
 	if glines, exp_glines, err := s.CheckGline(in.Ip); err == nil {
+		list = make([]*RetGlineData, 0, len(glines)+len(exp_glines))
 		for _, entry := range glines {
 			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.IsGlineActive())
 			list = append(list, e)

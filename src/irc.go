@@ -15,6 +15,8 @@ import (
 	"github.com/hiddn/cidranger"
 )
 
+type serversType map[*irc.Conn]*serverData
+
 var servers = make(serversType)
 
 type serverData struct {
@@ -28,8 +30,6 @@ type serverData struct {
 	LastLoginAttempt     int64
 	Quit                 chan bool
 }
-
-type serversType map[*irc.Conn]*serverData
 
 func (s serversType) NewServerInfos(conn *irc.Conn, config *Configuration) *serverData {
 	if srv := s.GetServerInfosByNetwork(config.Network); srv != nil {
