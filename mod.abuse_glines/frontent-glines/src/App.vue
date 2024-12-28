@@ -212,7 +212,7 @@ getUserIP()
             <td class="table-cell">
               {{ formatDate(gline.expirets) }}
               <span v-html="'<br/>'"></span>
-              {{ gline.expirets * 1000 > Date.now() 
+              {{ gline.expirets * 1000 > Date.now()
                   ? `Expires in ${formatDuration(gline.expirets)}`
                   : `Expired ${formatDuration(gline.expirets)} ago` }}
             </td>
