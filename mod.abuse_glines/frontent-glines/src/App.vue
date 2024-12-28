@@ -19,11 +19,30 @@ const showRequestForm = ref(false)
 const nickname = ref('')
 const realname = ref('')
 const email = ref('')
-const message = ref('')
+const user_message = ref('')
+const uuid = ref('')
+const emailConfirmed = ref('')
+const gotGlinesResults = ref(false)
 
-const isSubmitDisabled = computed(() => {
-  return !nickname.value || !realname.value || !email.value || !message.value
+const timerTasksId = ref(null)
+
+const isSubmitEnabled = ref(true)
+const isAllFieldsNonEmpty = computed(() => {
+  return !nickname.value || !realname.value || !email.value || !user_message.value
 })
+
+function startTasks() {
+  if (timerTasksId.value === null) {
+    timerTasksId.value = setInterval(GetTasks, 5000)
+  }
+}
+
+function stopTasks() {
+  if (timerTasksId.value !== null) {
+    clearInterval(timerTasksId.value)
+    timerTasksId.value = null
+  }
+}
 
 const removalResponse = ref([])
 
@@ -44,8 +63,9 @@ const lookupGline = async () => {
   errormsg.value = ''
   removalResponse.value = ''
   glines.value = []
-  isSubmitDisabled.value = false
+  isSubmitEnabled.value = false
   showRequestForm.value = false
+  gotGlinesResults.value = false
   const url = config.glinelookup_url
     .replace(':network', config.network.toLowerCase())
     .replace(':ip', ip.value)
@@ -54,7 +74,7 @@ const lookupGline = async () => {
     const response = await axios.get(url, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.api_key}`
+        //'Authorization': `Bearer ${config.api_key}`
       }
     })
     glines.value = response.data
@@ -76,25 +96,71 @@ const lookupGline = async () => {
 
 const requestRemoval = async () => {
   const requestData = {
+    uuid: uuid.value,
     network: config.network,
     ip: ip.value,
     nickname: nickname.value,
     realname: realname.value,
     email: email.value,
-    message: message.value
+    user_message: user_message.value
   }
+  isSubmitEnabled.value = false
 
   try {
     const response = await axios.post('/api/requestrem', requestData, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.api_key}`
+        //'Authorization': `Bearer ${config.api_key}`
       }
     })
-    removalResponse.value = response.data
+    uuid.value = response.data.uuid
+    if (response.status === 202) {
+      errormsg.value = response.data.message
+      isSubmitEnabled.value = true
+      startTasks()
+      /*if (response.data.includes('uuid')) {
+        uuid.value = response.data.split(' ')[1]
+      }*/
+    }
+    else if (response.status === 200) {
+      //removalResponse.value = response.data.glines
+      glines.value = response.data.glines
+      gotGlinesResults.value = true
+      isSubmitEnabled.value = false
+      showRequestForm.value = false
+    }
     console.log('Removal request response:', response.data)
   } catch (error) {
     console.error('Failed to request removal:', error)
+    if (error.status === 400) {
+      errormsg.value = 'Invalid request data: ' + error.response.data
+      return
+    }
+    errormsg.value = 'API call fail for requestRemoval(): ' + error.status + error.response.data
+  }
+}
+
+const GetTasks = async () => {
+  try {
+    const response = await axios.get(`/api/tasks/${uuid.value}`, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    const tasks = response.data
+    tasks.forEach(task => {
+      if (task.task_type === 'confirmemail') {
+        if (task.progress === 100) {
+          emailConfirmed.value = task.data
+          console.log('Email confirmed:', emailConfirmed.value)
+          errormsg.value = 'Email confirmed'
+          requestRemoval()
+          stopTasks()
+        }
+      }
+    })
+  } catch (error) {
+    console.error('Failed to get tasks:', error)
   }
 }
 
@@ -135,8 +201,8 @@ getUserIP()
           <tr>
             <th class="table-header">Mask</th>
             <th class="table-header">Reason</th>
-            <th class="table-header">Status</th>
-            <th class="table-header">Expiration Date</th>
+            <th class="table-header">Expiration</th>
+            <th v-if="gotGlinesResults" class="table-header">Request status</th>
           </tr>
         </thead>
         <tbody>
@@ -144,12 +210,13 @@ getUserIP()
             <td class="table-cell">{{ gline.mask }}</td>
             <td class="table-cell">{{ formatReason(gline.reason) }}</td>
             <td class="table-cell">
-              {{ gline.expirets * 1000 > Date.now() 
+              {{ formatDate(gline.expirets) + '\n' + (gline.expirets * 1000 > Date.now() 
                 ? `Expires in ${formatDuration(gline.expirets)}`
-                : `Expired ${formatDuration(gline.expirets)} ago`
+                : `Expired ${formatDuration(gline.expirets)} ago`)
               }}
             </td>
-            <td class="table-cell">{{ formatDate(gline.expirets) }}</td>
+            <td v-if="gotGlinesResults" class="table-cell">{{ gline.message }}</td>
+            <!--td class="table-cell">{{ formatDate(gline.expirets) }}</td-->
           </tr>
         </tbody>
       </table>
@@ -175,11 +242,11 @@ getUserIP()
         </div>
         <div class="input-container">
           <label class="label">Message:</label>
-          <textarea v-model="message" class="input"></textarea>
+          <textarea v-model="user_message" class="input"></textarea>
         </div>
         <button 
           @click="requestRemoval"
-          :disabled="isSubmitDisabled"
+          :disabled="isAllFieldsNonEmpty && isSubmitEnabled"
           class="button mt-4"
         >
           Submit
