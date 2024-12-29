@@ -139,11 +139,11 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 				//s.Msg(w[2], ret)
 				for i, res := range str_slices {
 					ret := fmt.Sprintf("(%d/%d) %s", i+1, len(str_slices), res)
-					s.Msg(w[2], ret)
+					s.Conn.Privmsg(w[2], ret)
 				}
 			} else {
 				ret := fmt.Sprintf("No match: %s", w[4])
-				s.Msg(w[2], ret)
+				s.Conn.Privmsg(w[2], ret)
 			}
 		}
 	}
@@ -176,19 +176,18 @@ func (s *serverData) TimerPing() {
 	}
 }
 
-func (s *serverData) Msg(dst, msg string) {
-	str := fmt.Sprintf("PRIVMSG %s :%s", dst, msg)
-	s.Conn.Raw(str)
-}
-
 func (s *serverData) MsgMainChan(msg string) {
 	if !s.Conn.Connected() {
 		return
 	}
 	firstchannel := strings.Split(s.Config.Channels[0], " ")[0]
-	str := fmt.Sprintf("PRIVMSG %s :%s", firstchannel, msg)
-	log.Println("->", str)
-	s.Conn.Raw(str)
+	/*
+		// Use built-in Privmsg() instead: it splits long messages
+		str := fmt.Sprintf("PRIVMSG %s :%s", firstchannel, msg)
+		log.Println("->", str)
+		s.Conn.Raw(str)
+	*/
+	s.Conn.Privmsg(firstchannel, msg)
 }
 
 func handleConnect(conn *irc.Conn, line *irc.Line) {

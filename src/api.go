@@ -55,20 +55,25 @@ type api_irccmd_struct struct {
 type api_remgline_struct struct {
 	Network                 string  `param:"network"`
 	GlineMask               string  `param:"glinemask"`
+	Message                 string  `param:"message"`
 	RegexExpectedForSuccess *string `param:"regexexpectedforsuccess,omitempty"`
 }
 
 func Api_init(config Configuration) *echo.Echo {
 	e := echo.New()
+	a := &ApiData{
+		Config:       config,
+		EchoInstance: e,
+	}
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
-	e.GET("/api2/glinelookup/:network/:ip", glineLookupApi)
-	e.GET("/api2/ismyipgline/:network", glineLookupOwnIPApi)
-	e.POST("/api2/sendcommand/:network", sendCommandApi)
-	e.POST("/api2/remgline/:network", removeGlineApi)
+	e.GET("/api2/glinelookup/:network/:ip", a.glineLookupApi)
+	e.GET("/api2/ismyipgline/:network", a.glineLookupOwnIPApi)
+	e.POST("/api2/sendcommand/:network", a.sendCommandApi)
+	e.POST("/api2/remgline/:network", a.removeGlineApi)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
-		Skipper: isAPIOpen,
+		Skipper: a.IsAPIOpen,
 		Validator: func(key string, c echo.Context) (bool, error) {
 			return key == config.ApiKey, nil
 		},
@@ -77,7 +82,7 @@ func Api_init(config Configuration) *echo.Echo {
 	return e
 }
 
-func isAPIOpen(c echo.Context) bool {
+func (a *ApiData) IsAPIOpen(c echo.Context) bool {
 	switch c.Path() {
 	case "/api2/glinelookup/:network/:ip":
 		return true
@@ -88,7 +93,7 @@ func isAPIOpen(c echo.Context) bool {
 	}
 }
 
-func removeGlineApi(c echo.Context) error {
+func (a *ApiData) removeGlineApi(c echo.Context) error {
 	var in api_remgline_struct
 	err := c.Bind(&in)
 	if err != nil {
@@ -102,10 +107,11 @@ func removeGlineApi(c echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, "Server not connected")
 	}
 	s.sendCommandToOperServ(strings.Replace(s.Config.OperServRemglineCmd, "$glinemask", in.GlineMask, -1))
+	s.MsgMainChan(in.Message[:400])
 	return c.JSON(http.StatusOK, "Command sent")
 }
 
-func sendCommandApi(c echo.Context) error {
+func (a *ApiData) sendCommandApi(c echo.Context) error {
 	var in api_irccmd_struct
 	err := c.Bind(&in)
 	if err != nil {
@@ -122,25 +128,28 @@ func sendCommandApi(c echo.Context) error {
 	return c.JSON(http.StatusOK, "Command sent")
 }
 
-func glineLookupApi(c echo.Context) error {
+func (a *ApiData) glineLookupApi(c echo.Context) error {
 	var in api_struct
 	err := c.Bind(&in)
-	return glineApi(c, in, err)
+	return a.glineApi(c, in, err)
 }
 
-func glineLookupOwnIPApi(c echo.Context) error {
+func (a *ApiData) glineLookupOwnIPApi(c echo.Context) error {
 	var in api_struct
 	var in2 api_struct2
 	err := c.Bind(&in2)
 	in.Network = in2.Network
 	in.Ip = c.RealIP()
-	return glineApi(c, in, err)
+	return a.glineApi(c, in, err)
 }
 
-func glineApi(c echo.Context, in api_struct, err error) error {
+func (a *ApiData) glineApi(c echo.Context, in api_struct, err error) error {
 	var list []*RetGlineData
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, "bad request")
+	}
+	if a.Config.ForbidCIDRLookupsViaAPI {
+		in.Ip = strings.Split(in.Ip, "/")[0]
 	}
 	log.Println("ip =", in.Ip, ", net = ", in.Network)
 	s := servers.GetServerInfosByNetwork(in.Network)

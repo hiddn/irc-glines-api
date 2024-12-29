@@ -59,10 +59,11 @@ func newConfirmEmailStruct(network, ip, email, uuid_str string) *confirmemail_st
 }
 
 type rules struct {
-	RegexReason  string `json:"regexreason"`
-	MustBeSameIP bool   `json:"mustbesameip"`
-	Autoremove   bool   `json:"autoremove"`
-	Message      string `json:"message"`
+	RegexReason     string `json:"regexreason"`
+	MustBeSameIP    bool   `json:"mustbesameip"`
+	Autoremove      bool   `json:"autoremove"`
+	NeverEmailAbuse bool   `json:"neveremailabuse"`
+	Message         string `json:"message"`
 }
 
 type RetApiData struct {
@@ -261,7 +262,8 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				emailToAbuseRequired = true
 			}
 			if autoremove {
-				if a.RemoveGline(in.Network, gline.Mask) {
+				broadcast_message := fmt.Sprintf("Auto-removed G-line on %s | email: %s | nick: %s | name: %s | Message: %s", gline.Mask, in.Email, in.Nickname, in.RealName, in.UserMessage)
+				if a.RemoveGline(in.Network, gline.Mask, broadcast_message) {
 					retData.Message = "Your G-line was removed successfully"
 				} else {
 					emailToAbuseRequired = true
@@ -274,8 +276,8 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 			list = append(list, retData)
 		}
 		if emailToAbuseRequired {
-			var emailContent string
-			a.PrepareAbuseEmail(emailContent, list, in.IP)
+			fmt.Printf("Debug: Emailing abuse for %s\n", in.IP)
+			emailContent := a.PrepareAbuseEmail(list, in.IP)
 			err = SendEmail(a.Config.AbuseEmail, a.Config.FromEmail, "G-line removal request", emailContent, a.Config.Smtp, true)
 			if err != nil {
 				log.Printf("Error sending email to abuse: %s\n", err)
@@ -290,6 +292,9 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 // Returns true if the gline is being auto-removed
 func (a *ApiData) EvalGlineRules(gline *RetApiData) (autoremove bool, emailToAbuseRequired bool, message string) {
 	var isGlineActive bool = true
+	autoremove = false
+	emailToAbuseRequired = true
+	message = ""
 	if gline.ExpireTS <= time.Now().Unix() {
 		message = "Gline already expired"
 		isGlineActive = false
@@ -308,16 +313,16 @@ func (a *ApiData) EvalGlineRules(gline *RetApiData) (autoremove bool, emailToAbu
 			continue
 		}
 		if matched {
-			//message = fmt.Sprintf("Please contact %s for this gline", a.Config.AbuseEmail)
-			//message = fmt.Sprintf("Abuse team contacted for this gline", a.Config.AbuseEmail)
-			message = rule.Message
 			fmt.Printf("Debug: Matched rule: %v\n", rule)
+			message = rule.Message
+			emailToAbuseRequired = !rule.NeverEmailAbuse && !autoremove
 			if rule.MustBeSameIP {
 				parts := strings.Split(gline.Mask, "@")
 				if len(parts) != 2 {
 					log.Printf("Error parsing gline mask: %s\n", gline.Mask)
 					message = fmt.Sprintf("Error parsing gline mask: %s. Please report to %s", gline.Mask, a.Config.AbuseEmail)
 					autoremove = false
+					emailToAbuseRequired = !rule.NeverEmailAbuse && !autoremove
 					return
 				}
 				glineIP := parts[1]
@@ -329,19 +334,24 @@ func (a *ApiData) EvalGlineRules(gline *RetApiData) (autoremove bool, emailToAbu
 				}
 				ip := net.ParseIP(gline.IP)
 				autoremove = cidr.Contains(ip) && rule.Autoremove
+				emailToAbuseRequired = !rule.NeverEmailAbuse && !autoremove
 				return
 			} else {
 				autoremove = rule.Autoremove
+				emailToAbuseRequired = !rule.NeverEmailAbuse && !autoremove
 				return
 			}
 		}
 	}
-	message = fmt.Sprintf("No action supported on this app for this gline right now. Contact %s.", a.Config.AbuseEmail)
+	if message == "" {
+		message = fmt.Sprintf("No action supported on this app for this gline right now. Contact %s.", a.Config.AbuseEmail)
+	}
 	autoremove = false
 	return
 }
 
-func (a *ApiData) PrepareAbuseEmail(emailContent string, list []*RetApiData, IP string) string {
+func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, IP string) string {
+	var emailContent string
 	emailContent = "<html><body>"
 	emailContent += "<p>Please review the following G-line removal request:</p>"
 	emailContent += fmt.Sprintf("<p>Link: <a href=\"%s/lookup/%s\">%s/lookup/%s</a></p>", a.Config.URL, IP, a.Config.URL, IP)
@@ -417,7 +427,7 @@ func (a *ApiData) confirmEmailAPI(c echo.Context) error {
 	return c.HTML(http.StatusOK, "Your email is confirmed.<br><br>You can close this tab and go back to the abuse-glines web application.")
 }
 
-func (a *ApiData) RemoveGline(network, glineMask string) bool {
+func (a *ApiData) RemoveGline(network, glineMask, message string) bool {
 	// Remove the gline
 	// Define the API endpoint template
 	if a.Config.Testmode {
@@ -438,6 +448,7 @@ func (a *ApiData) RemoveGline(network, glineMask string) bool {
 	requestBody, err := json.Marshal(map[string]string{
 		"glinemask": glineMask,
 		"network":   network,
+		"message":   message,
 	})
 	if err != nil {
 		log.Println("Error marshalling request body:", err)

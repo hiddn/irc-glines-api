@@ -13,5 +13,6 @@
     "authsuccessfullmsgs": [".*already authenticated.*", ".*Authentication successful.*"],
     "apikey": "someting_secret_here",
     "ReconnWaitTime": 120,
-    "url": "http://localhost:3000"
+    "url": "http://localhost:3000",
+    "forbidCIDRLookupsViaAPI": true
 }

@@ -36,4 +36,5 @@ type Configuration struct {
 	AutologinIfOperServMissing bool
 	AuthSuccessfullMsgs        []string
 	OperServRemglineCmd        string
+	ForbidCIDRLookupsViaAPI    bool
 }

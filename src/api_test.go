@@ -13,8 +13,12 @@ import (
 
 func BenchmarkCheckGlineApi(b *testing.B) {
 	e := echo.New()
+	a := &ApiData{
+		Config:       Configuration{},
+		EchoInstance: e,
+	}
 	e.Use(middleware.BodyLimit("1K"))
-	e.GET("/checkgline/:network/:ip", glineLookupApi)
+	e.GET("/checkgline/:network/:ip", a.glineLookupApi)
 
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/checkgline/undernet/1.2.3.4", nil)
