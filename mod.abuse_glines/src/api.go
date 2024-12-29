@@ -62,6 +62,7 @@ type rules struct {
 	RegexReason  string `json:"regexreason"`
 	MustBeSameIP bool   `json:"mustbesameip"`
 	Autoremove   bool   `json:"autoremove"`
+	Message      string `json:"message"`
 }
 
 type RetApiData struct {
@@ -234,7 +235,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				ce.Task.Cancel(fmt.Sprintf("Error sending confirmation email to %s. Please try again later or email %s with this message if it fails again.", ce.EmailAddr, a.Config.AbuseEmail))
 			}
 		}()
-		ret.Message = fmt.Sprintf("Sending email... Check your inbox (%s)", ce.EmailAddr)
+		ret.Message = fmt.Sprintf("Sending email... Check your inbox (%s).", ce.EmailAddr)
 		return c.JSON(http.StatusAccepted, ret)
 	} else {
 		// Email is confirmed. Overwrite the user-supplied email with the one that was confirmed before
@@ -253,67 +254,28 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				gline.Active,
 				false,
 			)
-			isGlineActive := true
-			if gline.ExpireTS <= time.Now().Unix() {
-				retData.Message = "Gline already expired"
-				isGlineActive = false
-			} else if !gline.Active {
-				retData.Message = "Gline is not active"
-				isGlineActive = false
+			var autoremove bool
+			var emailToAbuseRequiredForThisGline bool
+			autoremove, emailToAbuseRequiredForThisGline, retData.Message = a.EvalGlineRules(retData)
+			if emailToAbuseRequiredForThisGline {
+				emailToAbuseRequired = true
 			}
-			if isGlineActive {
-				autoremove := a.CanIAutoRemoveGline(retData)
-				if autoremove {
-					if a.RemoveGline(in.Network, gline.Mask) {
-						retData.Message = "Your G-line was removed successfully"
-					} else {
-						emailToAbuseRequired = true
-						retData.Message = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
-					}
+			if autoremove {
+				if a.RemoveGline(in.Network, gline.Mask) {
+					retData.Message = "Your G-line was removed successfully"
 				} else {
 					emailToAbuseRequired = true
+					retData.Message = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
 				}
-				if retData.Message == "" {
-					retData.Message = fmt.Sprintf("I don't know what to do with your request. Contact %s with this message.", a.Config.AbuseEmail)
-				}
+			}
+			if retData.Message == "" {
+				retData.Message = fmt.Sprintf("I don't know what to do with your request. Contact %s with this message.", a.Config.AbuseEmail)
 			}
 			list = append(list, retData)
 		}
 		if emailToAbuseRequired {
 			var emailContent string
-			emailContent = "<html><body>"
-			emailContent += "<p>Please review the following G-line removal request:</p>"
-			emailContent += fmt.Sprintf("<p>Link: <a href=\"%s/lookup/%s\">%s/lookup/%s</a></p>", a.Config.URL, in.IP, a.Config.URL, in.IP)
-			emailContent += "<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\" style=\"border-collapse: collapse;\">"
-			emailContent += "<tr><th>Mask</th><th>Reason</th><th>IP</th><th>ExpireTS</th><th>LastModTS</th><th>HoursUntilExpire</th><th>Active</th><th>AutoRemove</th><th>Message</th></tr>"
-			for _, gline := range list {
-				expireTSColor := "black"
-				lastModTSColor := "black"
-				if gline.ExpireTS <= time.Now().Unix() || !gline.Active {
-					expireTSColor = "red"
-					lastModTSColor = "red"
-				} else {
-					expireTSColor = "gray"
-					lastModTSColor = "gray"
-				}
-				emailContent += fmt.Sprintf(
-					"<tr><td>%s</td><td>%s</td><td>%s</td><td style=\"color:%s;\">%s (%s)</td><td style=\"color:%s;\">%s (%s)</td><td>%d</td><td>%t</td><td>%t</td><td>%s</td></tr>",
-					gline.Mask,
-					gline.Reason,
-					gline.IP,
-					expireTSColor,
-					time.Unix(gline.ExpireTS, 0).UTC().Format(time.RFC3339),
-					time.Duration(gline.ExpireTS-time.Now().Unix())*time.Second,
-					lastModTSColor,
-					time.Unix(gline.LastModTS, 0).UTC().Format(time.RFC3339),
-					time.Duration(gline.LastModTS-time.Now().Unix())*time.Second,
-					gline.HoursUntilExpire,
-					gline.Active,
-					gline.AutoRemove,
-					gline.Message,
-				)
-			}
-			emailContent += "</table></body></html>"
+			a.PrepareAbuseEmail(emailContent, list, in.IP)
 			err = SendEmail(a.Config.AbuseEmail, a.Config.FromEmail, "G-line removal request", emailContent, a.Config.Smtp, true)
 			if err != nil {
 				log.Printf("Error sending email to abuse: %s\n", err)
@@ -325,6 +287,96 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	}
 }
 
+// Returns true if the gline is being auto-removed
+func (a *ApiData) EvalGlineRules(gline *RetApiData) (autoremove bool, emailToAbuseRequired bool, message string) {
+	var isGlineActive bool = true
+	if gline.ExpireTS <= time.Now().Unix() {
+		message = "Gline already expired"
+		isGlineActive = false
+	} else if !gline.Active {
+		message = "Gline is not active"
+		isGlineActive = false
+	}
+	if !isGlineActive {
+		return false, false, message
+	}
+	for _, rule := range a.Config.Rules {
+		matched, err := regexp.MatchString(rule.RegexReason, gline.Reason)
+		if err != nil {
+			log.Println("Error matching regex:", err)
+			message = fmt.Sprintf("Error matching regex. Please report to %s", a.Config.AbuseEmail)
+			continue
+		}
+		if matched {
+			//message = fmt.Sprintf("Please contact %s for this gline", a.Config.AbuseEmail)
+			//message = fmt.Sprintf("Abuse team contacted for this gline", a.Config.AbuseEmail)
+			message = rule.Message
+			fmt.Printf("Debug: Matched rule: %v\n", rule)
+			if rule.MustBeSameIP {
+				parts := strings.Split(gline.Mask, "@")
+				if len(parts) != 2 {
+					log.Printf("Error parsing gline mask: %s\n", gline.Mask)
+					message = fmt.Sprintf("Error parsing gline mask: %s. Please report to %s", gline.Mask, a.Config.AbuseEmail)
+					autoremove = false
+					return
+				}
+				glineIP := parts[1]
+				_, cidr, err := net.ParseCIDR(glineIP)
+				if err != nil {
+					log.Println("Error parsing CIDR:", err)
+					message = fmt.Sprintf("Error parsing CIDR. Please report to %s", a.Config.AbuseEmail)
+					continue
+				}
+				ip := net.ParseIP(gline.IP)
+				autoremove = cidr.Contains(ip) && rule.Autoremove
+				return
+			} else {
+				autoremove = rule.Autoremove
+				return
+			}
+		}
+	}
+	message = fmt.Sprintf("No action supported on this app for this gline right now. Contact %s.", a.Config.AbuseEmail)
+	autoremove = false
+	return
+}
+
+func (a *ApiData) PrepareAbuseEmail(emailContent string, list []*RetApiData, IP string) string {
+	emailContent = "<html><body>"
+	emailContent += "<p>Please review the following G-line removal request:</p>"
+	emailContent += fmt.Sprintf("<p>Link: <a href=\"%s/lookup/%s\">%s/lookup/%s</a></p>", a.Config.URL, IP, a.Config.URL, IP)
+	emailContent += "<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\" style=\"border-collapse: collapse;\">"
+	emailContent += "<tr><th>Mask</th><th>Reason</th><th>IP</th><th>ExpireTS</th><th>LastModTS</th><th>HoursUntilExpire</th><th>Active</th><th>AutoRemove</th><th>Message</th></tr>"
+	for _, gline := range list {
+		expireTSColor := "black"
+		lastModTSColor := "black"
+		if gline.ExpireTS <= time.Now().Unix() || !gline.Active {
+			expireTSColor = "red"
+			lastModTSColor = "red"
+		} else {
+			expireTSColor = "gray"
+			lastModTSColor = "gray"
+		}
+		emailContent += fmt.Sprintf(
+			"<tr><td>%s</td><td>%s</td><td>%s</td><td style=\"color:%s;\">%s (%s)</td><td style=\"color:%s;\">%s (%s)</td><td>%d</td><td>%t</td><td>%t</td><td>%s</td></tr>",
+			gline.Mask,
+			gline.Reason,
+			gline.IP,
+			expireTSColor,
+			time.Unix(gline.ExpireTS, 0).UTC().Format(time.RFC3339),
+			time.Duration(gline.ExpireTS-time.Now().Unix())*time.Second,
+			lastModTSColor,
+			time.Unix(gline.LastModTS, 0).UTC().Format(time.RFC3339),
+			time.Duration(gline.LastModTS-time.Now().Unix())*time.Second,
+			gline.HoursUntilExpire,
+			gline.Active,
+			gline.AutoRemove,
+			gline.Message,
+		)
+	}
+	emailContent += "</table></body></html>"
+	return emailContent
+}
 func (a *ApiData) confirmEmailAPI(c echo.Context) error {
 	var in confirmemailapi_struct
 	err := c.Bind(&in)
@@ -363,50 +415,6 @@ func (a *ApiData) confirmEmailAPI(c echo.Context) error {
 
 	ce.Task.Done("Email confirmed.")
 	return c.HTML(http.StatusOK, "Your email is confirmed.<br><br>You can close this tab and go back to the abuse-glines web application.")
-}
-
-// Returns true if the gline is being auto-removed
-func (a *ApiData) CanIAutoRemoveGline(gline *RetApiData) bool {
-	if gline.ExpireTS <= time.Now().Unix() {
-		gline.Message = "Gline already expired"
-		return false
-	} else if !gline.Active {
-		gline.Message = "Gline is not active"
-		return false
-	}
-	for _, rule := range a.Config.Rules {
-		matched, err := regexp.MatchString(rule.RegexReason, gline.Reason)
-		if err != nil {
-			log.Println("Error matching regex:", err)
-			gline.Message = fmt.Sprintf("Error matching regex. Please report to %s", a.Config.AbuseEmail)
-			continue
-		}
-		if matched {
-			gline.Message = fmt.Sprintf("Please contact %s for this gline", a.Config.AbuseEmail)
-			fmt.Printf("Debug: Matched rule: %v\n", rule)
-			if rule.MustBeSameIP {
-				parts := strings.Split(gline.Mask, "@")
-				if len(parts) != 2 {
-					log.Printf("Error parsing gline mask: %s\n", gline.Mask)
-					gline.Message = fmt.Sprintf("Error parsing gline mask: %s. Please report to %s", gline.Mask, a.Config.AbuseEmail)
-					return false
-				}
-				glineIP := parts[1]
-				_, cidr, err := net.ParseCIDR(glineIP)
-				if err != nil {
-					log.Println("Error parsing CIDR:", err)
-					gline.Message = fmt.Sprintf("Error parsing CIDR. Please report to %s", a.Config.AbuseEmail)
-					continue
-				}
-				ip := net.ParseIP(gline.IP)
-				return cidr.Contains(ip) && rule.Autoremove
-			} else {
-				return rule.Autoremove
-			}
-		}
-	}
-	gline.Message = fmt.Sprintf("No action supported on this app for this gline right now. Contact %s.", a.Config.AbuseEmail)
-	return false
 }
 
 func (a *ApiData) RemoveGline(network, glineMask string) bool {
