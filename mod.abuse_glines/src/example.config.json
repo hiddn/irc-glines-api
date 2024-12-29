@@ -1,4 +1,31 @@
 {
     "networks": ["undernet"],
-    "apikey": "choose_something_random_here"
+    "apikey": "choose_something_random_and_secret_here",
+    "recaptchakey": "",
+    "recaptchasecretkey": "",
+    "smtp": {
+        "host": "host",
+        "port": 587,
+        "user": "hello",
+        "pass": "blah"
+    },
+    "fromemail": "noreply@undernet.org",
+    "url": "http://localhost:3000",
+    "rules": [
+        {
+            "regexreason": "^AUTO .*\\) You were identified as a drone.*",
+            "mustbesameip": true,
+            "autoremove": true,
+            "message": "Your G-line removal request has been sent to the Abuse team."
+        },
+        {
+            "regexreason": ".*",
+            "mustbesameip": false,
+            "autoremove": false,
+            "message": "Your G-line removal request has been sent to the Abuse team."
+        }
+    ],
+    "abuseemail": "abuse@undernet.org",
+    "testmode": false,
+    "testemail": "your_email@address.here"
 }
