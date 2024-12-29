@@ -5,7 +5,7 @@
     "nick": "InvalidNick",
     "ident": "user",
     "name": ".",
-    "connectCmds": ["oper user password"],
+    "connectcmds": ["oper user password"],
     "operservnick": "euworld",
     "operservlogin": "PRIVMSG OperServ :login user password",
     "operservremglinecmd": "removegline $glinemask",
