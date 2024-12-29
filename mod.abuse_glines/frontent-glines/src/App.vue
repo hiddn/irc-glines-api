@@ -1,6 +1,5 @@
-// src/App.vue
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import './style.css'
 
@@ -14,6 +13,7 @@ const myip = ref('')
 const ip = ref('')
 const errormsg = ref('')
 const glines = ref([])
+const paramIP = ref('')
 
 const showRequestForm = ref(false)
 const nickname = ref('')
@@ -29,6 +29,22 @@ const timerTasksId = ref(null)
 const isSubmitEnabled = ref(true)
 const isAllFieldsNonEmpty = computed(() => {
   return !nickname.value || !realname.value || !email.value || !user_message.value
+})
+
+onMounted(() => {
+  console.debug("onMounted")
+  const input_ip = document.getElementById('input_ip');
+  const params = new URLSearchParams(window.location.search);
+  paramIP.value = params.get('ip')
+  if (paramIP.value != null) {
+      ip.value = paramIP.value
+      input_ip.value = paramIP.value;
+      input_ip.focus();
+      input_ip.select();
+    }
+  else {
+    getUserIP()
+  }
 })
 
 function startTasks() {
@@ -50,8 +66,12 @@ const removalResponse = ref([])
 const getUserIP = async () => {
   try {
     const response = await axios.get('https://api.ipify.org?format=json')
+    const input_ip = document.getElementById('input_ip');
     myip.value = response.data.ip
     ip.value = response.data.ip
+    input_ip.value = response.data.ip;
+    input_ip.focus();
+    input_ip.select();
   } catch (error) {
     console.error('Failed to get user IP:', error)
   }
@@ -171,7 +191,6 @@ const handleKeyPress = (event) => {
   }
 }
 
-getUserIP()
 </script>
 
 <template>
@@ -181,9 +200,12 @@ getUserIP()
     <div class="input-container">
       <label class="label">IP address:</label>
       <input 
+        id="input_ip"
         type="text"
         v-model="ip"
         class="input"
+        autofocus
+        onfocus="this.select();"
         @keypress="handleKeyPress"
       >
       <button 
