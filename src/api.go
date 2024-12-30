@@ -107,7 +107,9 @@ func (a *ApiData) removeGlineApi(c echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, "Server not connected")
 	}
 	s.sendCommandToOperServ(strings.Replace(s.Config.OperServRemglineCmd, "$glinemask", in.GlineMask, -1))
-	s.MsgMainChan(in.Message[:400])
+	if len(in.Message) > 400 {
+		s.MsgMainChan(in.Message[:400])
+	}
 	return c.JSON(http.StatusOK, "Command sent")
 }
 
