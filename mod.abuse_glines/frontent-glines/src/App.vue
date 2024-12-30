@@ -16,6 +16,7 @@ const glines = ref([])
 const paramIP = ref('')
 
 const showRequestForm = ref(false)
+const requestButtonEnabled = ref(false)
 const nickname = ref('')
 const realname = ref('')
 const email = ref('')
@@ -83,9 +84,10 @@ const lookupGline = async () => {
   errormsg.value = ''
   removalResponse.value = ''
   glines.value = []
-  isSubmitEnabled.value = false
+  isSubmitEnabled.value = true
   showRequestForm.value = false
   gotGlinesResults.value = false
+  requestButtonEnabled.value = true
   const url = config.glinelookup_url
     .replace(':network', config.network.toLowerCase())
     .replace(':ip', ip.value)
@@ -124,7 +126,8 @@ const requestRemoval = async () => {
     email: email.value,
     user_message: user_message.value
   }
-  isSubmitEnabled.value = false
+  isSubmitEnabled.value = true
+  requestButtonEnabled.value = false
 
   try {
     const response = await axios.post('/api/requestrem', requestData, {
@@ -136,7 +139,8 @@ const requestRemoval = async () => {
     uuid.value = response.data.uuid
     if (response.status === 202) {
       errormsg.value = response.data.message
-      isSubmitEnabled.value = true
+      showRequestForm.value = false
+      //isSubmitEnabled.value = true
       startTasks()
     }
     else if (response.status === 200) {
@@ -152,6 +156,7 @@ const requestRemoval = async () => {
     }
     console.log('Removal request response:', response.data)
   } catch (error) {
+    requestButtonEnabled.value = true
     console.error('Failed to request removal:', error)
     if (error.status === 400) {
       errormsg.value = 'Invalid request data: ' + error.response.data
@@ -245,7 +250,7 @@ const handleKeyPress = (event) => {
         </tbody>
       </table>
       <button 
-        v-if="!showRequestForm"
+        v-if="!showRequestForm && requestButtonEnabled"
         @click="showRequestForm = true"
         class="button mt-4"
       >
@@ -270,7 +275,7 @@ const handleKeyPress = (event) => {
         </div>
         <button 
           @click="requestRemoval"
-          :disabled="isAllFieldsNonEmpty && isSubmitEnabled"
+          :disabled="isAllFieldsNonEmpty || !isSubmitEnabled"
           class="button mt-4"
         >
           Submit
