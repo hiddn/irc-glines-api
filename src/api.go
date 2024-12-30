@@ -108,8 +108,10 @@ func (a *ApiData) removeGlineApi(c echo.Context) error {
 	}
 	s.sendCommandToOperServ(strings.Replace(s.Config.OperServRemglineCmd, "$glinemask", in.GlineMask, -1))
 	if len(in.Message) > 400 {
-		s.MsgMainChan(in.Message[:400])
+		in.Message = in.Message[:400] + " [...]"
 	}
+	in.Message = strings.ReplaceAll(in.Message, "\n", "|")
+	s.MsgMainChan(in.Message)
 	return c.JSON(http.StatusOK, "Command sent")
 }
 
