@@ -163,11 +163,11 @@ func (a *ApiData) glineApi(c echo.Context, in api_struct, err error) error {
 	if glines, exp_glines, err := s.CheckGline(in.Ip); err == nil {
 		list = make([]*RetGlineData, 0, len(glines)+len(exp_glines))
 		for _, entry := range glines {
-			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.IsGlineActive())
+			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.active)
 			list = append(list, e)
 		}
 		for _, entry := range exp_glines {
-			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.IsGlineActive())
+			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.active)
 			list = append(list, e)
 		}
 	} else {
