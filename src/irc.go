@@ -187,7 +187,9 @@ func (s *serverData) MsgMainChan(msg string) {
 		log.Println("->", str)
 		s.Conn.Raw(str)
 	*/
-	s.Conn.Privmsg(firstchannel, msg)
+	if len(firstchannel) > 0 {
+		s.Conn.Privmsg(firstchannel, msg)
+	}
 }
 
 func handleConnect(conn *irc.Conn, line *irc.Line) {
