@@ -132,7 +132,8 @@ func Api_init(conf Configuration) *echo.Echo {
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
 	e.POST("/api/requestrem", a.requestRemGlineApi)
-	e.GET("/api/confirmemail/:confirmstring", a.confirmEmailAPI)
+	e.GET("/api/confirmemail/:confirmstring", a.confirmEmailAPIGet)
+	e.POST("/api/confirmemail/:confirmstring", a.confirmEmailAPI)
 	e.GET("/api/tasks/:uuid", a.TasksData.GetTasksStatus_api)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
@@ -387,6 +388,34 @@ func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, IP string) string {
 	emailContent += "</table></body></html>"
 	return emailContent
 }
+
+func (a *ApiData) confirmEmailAPIGet(c echo.Context) error {
+	var in confirmemailapi_struct
+	err := c.Bind(&in)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, "Bad request")
+	}
+
+	htmlForm := fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>Email Confirmation</title>
+		</head>
+		<body>
+			<h2>Email Confirmation</h2>
+			<form action="/api/confirmemail/%s" method="post">
+				<input type="hidden" name="confirmstring" value="%s">
+				<p>Click the button below to confirm your email:</p>
+				<button type="submit">Confirm Email</button>
+			</form>
+		</body>
+		</html>
+	`, in.ConfirmString, in.ConfirmString)
+
+	return c.HTML(http.StatusOK, htmlForm)
+}
+
 func (a *ApiData) confirmEmailAPI(c echo.Context) error {
 	var in confirmemailapi_struct
 	err := c.Bind(&in)
