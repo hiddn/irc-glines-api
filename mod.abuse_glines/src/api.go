@@ -206,7 +206,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		if task.TaskType == "confirmemail" {
 			fmt.Printf("Debug: email = %v\nDebug: task.Data = %v\n", in.Email, task.Data)
 			if task.Data.(*confirmemail_struct).EmailAddr == in.Email {
-				if !task.IsExpired() {
+				if !task.IsExpired() && task.Progress == 100 {
 					fmt.Printf("Debug: Confirmed email found: %s\n", in.Email)
 					emailConfirmed = true
 					email = task.DataVisibleToUser
