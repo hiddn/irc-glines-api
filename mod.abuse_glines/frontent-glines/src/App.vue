@@ -43,9 +43,7 @@ onMounted(() => {
       input_ip.focus();
       input_ip.select();
     }
-  else {
-    getUserIP()
-  }
+  getUserIP()
 })
 
 function startTasks() {
@@ -67,12 +65,14 @@ const removalResponse = ref([])
 const getUserIP = async () => {
   try {
     const response = await axios.get('https://api.ipify.org?format=json')
-    const input_ip = document.getElementById('input_ip');
     myip.value = response.data.ip
-    ip.value = response.data.ip
-    input_ip.value = response.data.ip;
-    input_ip.focus();
-    input_ip.select();
+    if (paramIP.value == null) {
+      const input_ip = document.getElementById('input_ip');
+      ip.value = response.data.ip
+      input_ip.value = response.data.ip;
+      input_ip.focus();
+      input_ip.select();
+    }
   } catch (error) {
     console.error('Failed to get user IP:', error)
   }
@@ -201,7 +201,7 @@ const handleKeyPress = (event) => {
 <template>
   <div class="container mx-auto px-4 py-8">
     <h1>Gline Lookup</h1>
-    <!--p>Your IP: {{ myip }}</p-->
+    <p>Your IP: {{ myip }}</p>
     <div class="input-container">
       <label class="label">IP address:</label>
       <input 
@@ -224,6 +224,7 @@ const handleKeyPress = (event) => {
     <p v-if="errormsg" class="error">{{ errormsg }}</p>
     
     <div v-if="glines.length > 0" class="table-container">
+      <span class="label-title">Search results</span>
       <table class="table-auto">
         <thead>
           <tr>
@@ -238,11 +239,7 @@ const handleKeyPress = (event) => {
             <td class="table-cell">{{ gline.mask }}</td>
             <td class="table-cell">{{ formatReason(gline.reason) }}</td>
             <td class="table-cell">
-              {{ formatDate(gline.expirets) }}
-              <span v-html="'<br/>'"></span>
-              {{ gline.expirets * 1000 > Date.now()
-                  ? `Expires in ${formatDuration(gline.expirets)}`
-                  : `Expired ${formatDuration(gline.expirets)} ago` }}
+              <span v-html="getExpirationString(gline)"></span>
             </td>
             <td v-if="gotGlinesResults" class="table-cell gline-results">{{ gline.message }}</td>
             <!--td class="table-cell">{{ formatDate(gline.expirets) }}</td-->
@@ -256,30 +253,34 @@ const handleKeyPress = (event) => {
       >
         Request removal
       </button>
+    </div>
       <div v-if="showRequestForm" class="request-form mt-4">
-        <div class="input-container">
+        <div class="form-row">
           <label class="label">Nickname:</label>
           <input type="text" v-model="nickname" class="input">
         </div>
-        <div class="input-container">
+        <div class="form-row">
           <label class="label">Real Name:</label>
           <input type="text" v-model="realname" class="input">
         </div>
-        <div class="input-container">
+        <div class="form-row">
           <label class="label">Email:</label>
           <input type="email" v-model="email" class="input">
         </div>
-        <div class="input-container">
+        <div class="form-row">
           <label class="label">Message:</label>
           <textarea v-model="user_message" class="input"></textarea>
         </div>
-        <button 
-          @click="requestRemoval"
-          :disabled="isAllFieldsNonEmpty || !isSubmitEnabled"
-          class="button mt-4"
-        >
-          Submit
-        </button>
+        <div class="form-button">
+          <button 
+            id="removeButton"
+            @click="requestRemoval"
+            :disabled="isAllFieldsNonEmpty || !isSubmitEnabled"
+            class="button mt-4"
+          >
+            Submit
+          </button>
+        </div>
       </div>
       <div v-if="removalResponse.length > 0" class="removal-response mt-4">
         <h2>Removal Response</h2>
@@ -290,7 +291,6 @@ const handleKeyPress = (event) => {
           <p><strong>Message:</strong> {{ response.msg }}</p>
         </div>
       </div>
-    </div>
   </div>
 </template>
 
@@ -319,13 +319,51 @@ const formatDate = (timestamp) => {
   }).format(date)
 }
 
+const getExpirationString = (gline) => {
+  /*
+  <span v-if="!gline.active" style="color: red;">Deactivated</span>
+              <span v-if="gline.active">
+                {{ formatDate(gline.expirets) }}
+                <span v-html="'<br/>'"></span>
+                <span v-if="gline.active && (gline.expirets * 1000) <= Date.now()" style="color: red;" v-html="'EXPIRED'"></span>
+                {{ gline.expirets * 1000 > Date.now()
+                    ? `-> in ${formatDuration(gline.expirets)})`
+                    : ` ${formatDuration(gline.expirets)} ago` }}
+              </span>
+  */
+  let exp = ''
+  let isExpired = (gline.expirets * 1000) <= Date.now()
+  if (!gline.active) {
+    exp = '<span style="color: red;">Deactivated</span>'
+    return exp
+  }
+  exp = `${formatDate(gline.expirets)}<br/>`
+  if (isExpired) {
+    exp += '<b><span style="color: green;">EXPIRED</span>: '
+  }
+  else {
+    exp += '(<b>in '
+  }
+  exp += `${formatDuration(gline.expirets)}`
+  if (isExpired) {
+    exp += '</b> ago'
+  }
+  else {
+    exp += '</b>)'
+  }
+  return exp
+}
+
 const formatReason = (reason) => {
   return reason.replace(/\\u0026/g, '&')
 }
 </script>
 
-<style scoped>
+<style>
 /* Add your styles here */
+#app {
+  width: 100%;
+}
 .container {
   max-width: 2xl;
   margin: auto;
@@ -369,11 +407,13 @@ const formatReason = (reason) => {
 .table-container {
   max-width: 2xl;
   margin: auto;
+  margin-bottom: 2rem;
 }
 
 .table-auto {
   width: 100%;
   border-collapse: collapse;
+  margin-bottom: 2rem;
 }
 
 .table-header {
@@ -394,8 +434,62 @@ const formatReason = (reason) => {
   background-color: #edf2f7;
 }
 
+/* Container for the form */
+.request-form {
+  display: flex;
+  flex-direction: column; /* Stack rows vertically */
+  gap: 15px; /* Space between rows */
+}
+
+/* Label and input row styling */
+.form-row {
+  display: flex;
+  align-items: left; /* Align label and input vertically */
+  gap: 1rem; /* Space between label and input */
+}
+
+/* Label styling */
+.request-form label {
+  width: 100px; /* Fixed width for labels */
+  text-align: left; /* Align label text to the right */
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* Input styling */
+.request-form textarea,
+.request-form input[type="text"],
+.request-form input[type="email"],
+.request-form input[type="password"] {
+  flex: 1; /* Allow inputs to grow to fill remaining space */
+  padding: 8px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.request-form button {
+  max-width: 10rem;
+}
+.form-button {
+  align-items: right;
+}
+
+
 .request-form .input-container {
   margin-bottom: 1rem;
+}
+
+.input-container label {
+  font-weight: bold;
+}
+
+.label-title {
+  display: block;
+  text-align: left;
+  margin-bottom: 1rem;
+  margin-top: 3rem;
+  font-weight: bold;
 }
 
 .request-form .input {
@@ -423,6 +517,9 @@ const formatReason = (reason) => {
 .gline-results {
   color: black;
   background-color: yellow;
+}
+.colorred {
+  color: red;
 }
 </style>
 
