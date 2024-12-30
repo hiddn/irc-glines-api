@@ -242,7 +242,6 @@ const handleKeyPress = (event) => {
               <span v-html="getExpirationString(gline)"></span>
             </td>
             <td v-if="gotGlinesResults" class="table-cell gline-results">{{ gline.message }}</td>
-            <!--td class="table-cell">{{ formatDate(gline.expirets) }}</td-->
           </tr>
         </tbody>
       </table>
@@ -431,7 +430,7 @@ const formatReason = (reason) => {
 }
 
 .table-auto tbody tr:nth-child(even) {
-  background-color: #edf2f7;
+  background-color: black;
 }
 
 /* Container for the form */
