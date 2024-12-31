@@ -203,7 +203,7 @@ const handleKeyPress = (event) => {
     <h1>G-line Lookup</h1>
     <p>Your IP: {{ myip }}</p>
     <div class="input-container">
-      <label class="label">IP address:</label>
+      <label for="input_ip" class="label">IP address:</label>
       <input 
         id="input_ip"
         type="text"
@@ -217,7 +217,7 @@ const handleKeyPress = (event) => {
         @click="lookupGline"
         class="button"
       >
-        Lookup G-line
+        Lookup
       </button>
     </div>
     
@@ -358,11 +358,11 @@ const formatReason = (reason) => {
 </script>
 
 <style>
-/* Add your styles here */
 body {
   max-width: 1100px;
   align-items: center;
   margin: auto;
+  display: block;
 }
 #app {
   width: 100%;
@@ -563,6 +563,39 @@ body {
   margin: 0;
   align-self: start;
 }
-
+@media (max-width: 768px) {
+  /* Mobile styles here */
+  body {
+    font-size: 1rem;
+    margin: 0rem;
+    padding: 0rem;
+  }
+  #app {
+    padding: 0rem 0rem;
+  }
+  .input-container {
+    display: contents;
+    align-items: center;
+    margin: auto;
+  }
+  button {
+    width: 100%;
+    margin-top: 2rem;
+  }
+  .label {
+    align-self: start;
+    text-align: left;
+  }
+  h1 {
+    font-size: 2.5rem;
+  }
+  .input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.25rem;
+    margin: 0.5rem;
+  }
+}
 </style>
 
