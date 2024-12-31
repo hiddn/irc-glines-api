@@ -572,15 +572,15 @@ body {
   }
   #app {
     padding: 0rem 0rem;
+    max-width: 500px;
   }
   .input-container {
-    display: contents;
-    align-items: center;
+    display: grid;
+    align-items: start;
     margin: auto;
   }
   button {
     width: 100%;
-    margin-top: 2rem;
   }
   .label {
     align-self: start;
@@ -594,7 +594,6 @@ body {
     padding: 0.75rem;
     border: 1px solid #e2e8f0;
     border-radius: 0.25rem;
-    margin: 0.5rem;
   }
 }
 </style>
