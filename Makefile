@@ -3,13 +3,22 @@ FRONTEND_DIR = mod.abuse_glines/frontent-glines
 BUILD_DIR = $(FRONTEND_DIR)/dist
 NPM = npm
 
-.PHONY: all clean build deploy-frontend
+.PHONY: all clean build-go build-frontend deploy-frontend
 
 # Default target
-all: build
+all: build-go build-frontend deploy-frontend
+
+# go
+build-go:
+	@echo "Building irc-glines-api..."
+	go build .
+	@echo "Building abuse_glines..."
+	cd mod.abuse_glines && go build .
+	@echo "Done."
+
 
 # Build the frontend
-build:
+build-frontend:
 	@echo "Building the frontend..."
 	cd $(FRONTEND_DIR) && $(NPM) install && $(NPM) run build
 	@echo "Frontend build complete. Output is in $(BUILD_DIR)"
