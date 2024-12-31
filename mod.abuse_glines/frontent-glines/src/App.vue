@@ -360,6 +360,9 @@ const formatReason = (reason) => {
 
 <style>
 /* Add your styles here */
+body {
+  display: block;
+}
 #app {
   width: 100%;
 }
@@ -437,7 +440,7 @@ const formatReason = (reason) => {
 .request-form {
   display: flex;
   flex-direction: column; /* Stack rows vertically */
-  gap: 15px; /* Space between rows */
+  gap: 1rem; /* Space between rows */
 }
 
 /* Label and input row styling */
@@ -449,9 +452,9 @@ const formatReason = (reason) => {
 
 /* Label styling */
 .request-form label {
-  width: 100px; /* Fixed width for labels */
+  width: 16rem; /* Fixed width for labels */
   text-align: left; /* Align label text to the right */
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: bold;
 }
 
@@ -461,8 +464,8 @@ const formatReason = (reason) => {
 .request-form input[type="email"],
 .request-form input[type="password"] {
   flex: 1; /* Allow inputs to grow to fill remaining space */
-  padding: 8px;
-  font-size: 16px;
+  padding: 0.5rem;
+  font-size: 1rem;
   border: 1px solid #ccc;
   border-radius: 5px;
 }
