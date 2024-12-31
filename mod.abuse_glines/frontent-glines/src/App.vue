@@ -472,12 +472,11 @@ body {
 }
 
 .request-form button {
-  max-width: 10rem;
+  grid-column: span 2;
 }
 .form-button {
   align-items: right;
 }
-
 
 .request-form .input-container {
   margin-bottom: 1rem;
@@ -505,6 +504,7 @@ body {
 .request-form .button:disabled {
   background-color: #a0aec0;
   cursor: not-allowed;
+  color: black;
 }
 
 .removal-response {
