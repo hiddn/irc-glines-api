@@ -29,7 +29,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 	@echo "Clean complete."
 
-deploy-frontend:
+deploy-frontend: build-frontend
 	@echo "Deploying frontend to production..."
 	./deploy-frontend.sh
 	@echo "Done."
