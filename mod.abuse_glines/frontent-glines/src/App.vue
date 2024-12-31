@@ -520,6 +520,8 @@ body {
 .gline-results {
   color: black;
   background-color: yellow;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
 }
 .colorred {
   color: red;
