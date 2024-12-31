@@ -225,7 +225,24 @@ const handleKeyPress = (event) => {
     
     <div v-if="glines.length > 0" class="table-container">
       <span class="label-title">Search results</span>
-      <table class="table-auto">
+      <div v-for="gline in glines" :key="gline.mask" class="gline">
+        <div class="gline-mask">
+          <span class="gline-info-title">Gline:</span>
+          {{ gline.mask }}
+        </div>
+        <ul class="gline-infos">
+          <span class="gline-info-title">Reason:</span>
+          {{ formatReason(gline.reason) }}
+        </ul>
+        <ul class="gline-infos">
+          <span class="gline-info-title">Expiration: </span>
+          <span v-html="getExpirationString(gline)"></span>
+        </ul>
+        <div v-if="gotGlinesResults" class="gline-results">
+          {{ gline.message }}
+        </div>
+      </div>
+      <div>
         <thead>
           <tr>
             <th class="table-header">Mask</th>
@@ -244,7 +261,7 @@ const handleKeyPress = (event) => {
             <td v-if="gotGlinesResults" class="table-cell gline-results">{{ gline.message }}</td>
           </tr>
         </tbody>
-      </table>
+      </div>
       <button 
         v-if="!showRequestForm && requestButtonEnabled"
         @click="showRequestForm = true"
@@ -522,6 +539,20 @@ body {
 }
 .colorred {
   color: red;
+}
+.gline {
+  background-color: rgb(29, 28, 28);
+  text-align: left;
+  margin: auto;
+  padding: 0.5rem;
+  margin: 1rem 0rem;
+}
+.gline-info-title {
+  font-weight: bold;
+}
+.gline-mask {
+}
+.gline-infos {
 }
 </style>
 
