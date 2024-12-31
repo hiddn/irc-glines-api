@@ -224,10 +224,10 @@ const handleKeyPress = (event) => {
     <p v-if="errormsg" class="error">{{ errormsg }}</p>
     
     <div v-if="glines.length > 0" class="table-container">
-      <span class="label-title">Search results</span>
+      <span class="label-title">G-lines:</span>
       <div v-for="gline in glines" :key="gline.mask" class="gline">
         <div>
-          <span class="gline-info-title">G-line: </span>
+          <span class="gline-info-title"></span>
           <span class="gline-mask">{{ gline.mask }}</span>
         </div>
         <dl class="key-value-list gline-infos">
@@ -332,7 +332,7 @@ const getExpirationString = (gline) => {
   let exp = ''
   let isExpired = (gline.expirets * 1000) <= Date.now()
   if (!gline.active) {
-    exp = '<span style="color: red;">Deactivated</span>'
+    exp = '<span style="color: green;">Deactivated</span>'
     return exp
   }
   exp = `${formatDate(gline.expirets)}<br/>`
@@ -360,7 +360,9 @@ const formatReason = (reason) => {
 <style>
 /* Add your styles here */
 body {
-  display: block;
+  max-width: 1100px;
+  align-items: center;
+  margin: auto;
 }
 #app {
   width: 100%;
@@ -491,6 +493,7 @@ body {
   margin-bottom: 1rem;
   margin-top: 3rem;
   font-weight: bold;
+  font-size: 1.25rem
 }
 
 .request-form .input {
@@ -528,21 +531,26 @@ body {
   margin: auto;
   padding: 0.5rem;
   margin: 1rem 0rem;
+  border-radius: 0.5rem;
 }
 .gline-info-title {
   font-weight: bold;
+  font-size: 1.25rem;
 }
 .gline-mask {
   margin-left: 0.5rem;
   color: lightseagreen;
+  font-size: 1.25rem;
 }
 .key-value-list {
-    display: grid;
-    grid-template-columns: auto 1fr; /* Keys in the first column, values in the second column */
-    gap: 1rem 2rem; /* Spacing between rows and columns */
-    align-items: center; /* Align keys and values vertically */
-    padding-left: 2rem;
-  }
+  display: grid;
+  grid-template-columns: auto 1fr; /* Keys in the first column, values in the second column */
+  gap: 0.2rem 2rem; /* Spacing between rows and columns */
+  align-items: center; /* Align keys and values vertically */
+}
+.gline-infos {
+  padding-left: 2rem;
+}
 .key-value-list > div {
   display: contents; /* Ensures each pair behaves as a row */
 }
