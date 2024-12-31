@@ -12,7 +12,7 @@ func TestSendEmail(t *testing.T) {
 	body := "This is a test email"
 	smtp := config.Smtp
 	useHTML := false
-	err := SendEmail(to, from, subject, body, smtp, useHTML)
+	err := SendEmail(to, from, "", subject, body, smtp, useHTML)
 	if err != nil {
 		t.Errorf("SendEmail() failed: %s", err)
 	}

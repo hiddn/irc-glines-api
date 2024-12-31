@@ -15,11 +15,11 @@ type SmtpConfig struct {
 	Pass string `json:"pass"`
 }
 
-func SendEmail(to, from, subject, body string, smtp SmtpConfig, useHTML bool) error {
-	return SendEmail_NoStruct(to, from, subject, body, smtp.Host, smtp.Port, smtp.User, smtp.Pass, useHTML)
+func SendEmail(to, from, replyTo, subject, body string, smtp SmtpConfig, useHTML bool) error {
+	return SendEmail_NoStruct(to, from, replyTo, subject, body, smtp.Host, smtp.Port, smtp.User, smtp.Pass, useHTML)
 }
 
-func SendEmail_NoStruct(to, from, subject, body, smtpHost string, smtpPort int, smtpUser, smtpPass string, useHTML bool) error {
+func SendEmail_NoStruct(to, from, replyTo, subject, body, smtpHost string, smtpPort int, smtpUser, smtpPass string, useHTML bool) error {
 	var err error
 	if !IsEmailValid(to) {
 		return fmt.Errorf("invalid email address: %s", to)
@@ -28,6 +28,9 @@ func SendEmail_NoStruct(to, from, subject, body, smtpHost string, smtpPort int, 
 	m.SetHeader("From", from)
 	m.SetHeader("To", to)
 	m.SetHeader("Subject", subject)
+	if replyTo != "" {
+		m.SetHeader("Reply-To", replyTo)
+	}
 	if useHTML {
 		m.SetBody("text/html", body)
 	} else {

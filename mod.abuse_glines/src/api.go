@@ -228,7 +228,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		}
 		go func() {
 			ce.Task.Start()
-			err = SendEmail(ce.EmailAddr, a.Config.FromEmail, "Email confirmation required", body, a.Config.Smtp, false)
+			err = SendEmail(ce.EmailAddr, a.Config.FromEmail, "", "Email confirmation required", body, a.Config.Smtp, false)
 			if err == nil {
 				a.ConfirmEmailMap[ce.ConfirmString] = ce
 				ce.Task.SetProgress(50, "Email confirmation sent")
@@ -279,7 +279,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		if emailToAbuseRequired {
 			fmt.Printf("Debug: Emailing abuse for %s\n", in.IP)
 			emailContent := a.PrepareAbuseEmail(list, in.IP)
-			err = SendEmail(a.Config.AbuseEmail, a.Config.FromEmail, "G-line removal request", emailContent, a.Config.Smtp, true)
+			err = SendEmail(a.Config.AbuseEmail, a.Config.FromEmail, in.Email, "G-line removal request", emailContent, a.Config.Smtp, true)
 			if err != nil {
 				log.Printf("Error sending email to abuse: %s\n", err)
 			}
@@ -355,7 +355,7 @@ func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, IP string) string {
 	var emailContent string
 	emailContent = "<html><body>"
 	emailContent += "<p>Please review the following G-line removal request:</p>"
-	emailContent += fmt.Sprintf("<p>Link: <a href=\"%s/lookup/%s\">%s/lookup/%s</a></p>", a.Config.URL, IP, a.Config.URL, IP)
+	emailContent += fmt.Sprintf("<p>Link: <a href=\"%s?ip=%s\">%s?ip=%s</a></p>", a.Config.URL, IP, a.Config.URL, IP)
 	emailContent += "<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\" style=\"border-collapse: collapse;\">"
 	emailContent += "<tr><th>Mask</th><th>Reason</th><th>IP</th><th>ExpireTS</th><th>LastModTS</th><th>HoursUntilExpire</th><th>Active</th><th>AutoRemove</th><th>Message</th></tr>"
 	for _, gline := range list {
