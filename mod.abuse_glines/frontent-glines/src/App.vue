@@ -360,12 +360,13 @@ const formatReason = (reason) => {
 <style>
 body {
   max-width: 1100px;
-  align-items: center;
+  align-items: flex-start;
   margin: auto;
-  display: block;
+  display: flex;
 }
 #app {
   width: 100%;
+  padding: 0rem 2rem;
 }
 .container {
   max-width: 2xl;
@@ -545,7 +546,7 @@ body {
 .key-value-list {
   display: grid;
   grid-template-columns: auto 1fr; /* Keys in the first column, values in the second column */
-  gap: 0.2rem 2rem; /* Spacing between rows and columns */
+  gap: 1rem 2rem; /* Spacing between rows and columns */
   align-items: center; /* Align keys and values vertically */
 }
 .gline-infos {
@@ -572,12 +573,19 @@ body {
   }
   #app {
     padding: 0rem 0rem;
-    max-width: 500px;
   }
   .input-container {
     display: grid;
     align-items: start;
     margin: auto;
+  }
+  .gline-infos {
+    padding-left: 0.5rem;
+  }
+
+  .key-value-list {
+    font-size: 0.8rem;
+    gap: 1rem 0.5rem;
   }
   button {
     width: 100%;
