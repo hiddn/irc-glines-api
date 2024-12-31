@@ -120,7 +120,7 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 			s.Conn.Raw(str)
 			return
 		}
-		if glines, exp_glines, err := s.CheckGline(w[4]); err == nil {
+		if glines, exp_glines, err := s.CheckGline(w[4], false); err == nil {
 			str_slices := make([]string, 0, len(glines))
 			for _, entry := range glines {
 				mask := entry.Mask()
@@ -240,7 +240,9 @@ func handleGline280(conn *irc.Conn, line *irc.Line) {
 	ip = AddCidrToIP(ip)
 	if _, ip_net, err := net.ParseCIDR(ip); err == nil {
 		// cidr is valid
-		s.Cranger.Insert(newGlineData(*ip_net, user, mask, expireTS, lastModTS, reason, active))
+		//s.Cranger.Insert(newGlineData(*ip_net, user, mask, expireTS, lastModTS, reason, active))
+		//s.AddNewGline(newGlineData(*ip_net, user, mask, expireTS, lastModTS, reason, active))
+		s.AddOrUpdateGline(*ip_net, user, mask, expireTS, lastModTS, reason, &active, line.Raw)
 	} else {
 		log.Println("Invalid IP/CIDR for mask:", mask)
 	}
@@ -438,23 +440,14 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 	if err != nil {
 		log.Fatal("expireTS provided is not an int. String:", line)
 	}
-	if !s.UpdateGline(mask, active, expireTS, reason) {
-		ip := AddCidrToIP(ip)
-		if _, ip_net, err := net.ParseCIDR(ip); err == nil {
-			lastModTS = time.Now().Unix()
-			//fmt.Printf("Adding new gline infos for %s\n", ip)
-			if active == nil || reason == "" {
-				out := fmt.Sprintf("(Insert gline bug) active or reason value is nil for this line: %s", line)
-				s.MsgMainChan(out)
-				retErr = errors.New(out)
-			} else {
-				s.Cranger.Insert(newGlineData(*ip_net, user, mask, expireTS, lastModTS, reason, *active))
-			}
-		} else {
-			out := fmt.Sprintf("net.ParseCIDR(%s) error: %s", ip, line)
-			s.MsgMainChan(out)
-			retErr = errors.New(out)
-		}
+	lastModTS = time.Now().Unix()
+	ip = AddCidrToIP(ip)
+	if _, ip_net, err := net.ParseCIDR(ip); err == nil {
+		s.AddOrUpdateGline(*ip_net, user, mask, expireTS, lastModTS, reason, active, line)
+	} else {
+		out := fmt.Sprintf("net.ParseCIDR(%s) error: %s", ip, line)
+		s.MsgMainChan(out)
+		retErr = errors.New(out)
 	}
 	return retErr
 }

@@ -138,15 +138,15 @@ func TestHandleGNOTICE(t *testing.T) {
 		var res *glineData
 		w := strings.Split(c.snotice, " ")
 		res_err := handleGNOTICE(c.snotice, w, s)
-		res_act, res_deact, res_err_checkg := s.CheckGline(c.ip)
+		res_act, res_deact, res_err_checkg := s.CheckGline(c.ip, false)
 		//t.Logf("res_act = %#v", res_act)
 		//t.Logf("res_deact = %#v", res_deact)
 		if !c.expectedErr {
 			if res_err_checkg != nil {
-				t.Errorf(`s.CheckGline(%s) returned an error: %s`, c.ip, res_err_checkg.Error())
+				t.Errorf(`s.CheckGline(%s, false) returned an error: %s`, c.ip, res_err_checkg.Error())
 			}
 			if res_err != nil {
-				t.Errorf(`handleGNOTICE(%s) returned an error: %s`, c.snotice, res_err.Error())
+				t.Errorf(`handleGNOTICE(%s, false) returned an error: %s`, c.snotice, res_err.Error())
 			}
 		}
 		if len(res_act) > 1 {

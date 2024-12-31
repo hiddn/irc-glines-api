@@ -1,7 +1,6 @@
 package ircglineapi
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"net"
@@ -21,6 +20,11 @@ type glineData struct {
 	active    bool
 }
 
+type glinesData struct {
+	IpNet  net.IPNet
+	Glines []*glineData
+}
+
 func Is_valid_ip(ip string) bool {
 	if r := net.ParseIP(ip); r == nil {
 		return false
@@ -36,11 +40,14 @@ func Is_valid_cidr(cidr string) bool {
 }
 
 // get function for network
-func (b *glineData) Network() net.IPNet {
-	return b.ipNet
+func (b *glinesData) Network() net.IPNet {
+	return b.IpNet
 }
 
 // get function for network converted to string
+func (b *glinesData) NetworkStr() string {
+	return b.IpNet.String()
+}
 func (b *glineData) NetworkStr() string {
 	return b.ipNet.String()
 }
@@ -78,7 +85,7 @@ func (g *glineData) IsGlineActive() bool {
 // Updates glineData.
 // If expireTS=0, expireTS value is not modified.
 // If reason == nil, reason is not modified
-func (g *glineData) UpdateGline(active *bool, expireTS int64, reason string) {
+func (g *glineData) Update(active *bool, expireTS int64, reason string) {
 	g.lastModTS = time.Now().Unix()
 	if active != nil {
 		g.active = *active
@@ -89,11 +96,19 @@ func (g *glineData) UpdateGline(active *bool, expireTS int64, reason string) {
 	if expireTS != 0 {
 		g.expireTS = expireTS
 	}
-	//fmt.Println("DEBUG: UpdateGline:", g.mask, active, expireTS)
+	//fmt.Println("DEBUG: glineData.Update():", g.mask, active, expireTS)
 }
 
 // create customRangerEntry object using net and asn
-func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64, reason string, active bool) cidranger.RangerEntry {
+func newGlinesData(ipNet net.IPNet, glines []*glineData) cidranger.RangerEntry {
+	return &glinesData{
+		IpNet:  ipNet,
+		Glines: glines,
+	}
+}
+
+// create customRangerEntry object using net and asn
+func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64, reason string, active bool) *glineData {
 	return &glineData{
 		ipNet:     ipNet,
 		user:      user,
@@ -107,34 +122,66 @@ func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64,
 
 // Updates existing glineData information based on gline mask.
 // Returns true if ip gline mask exists in current glineData struct. False otherwise.
-func (s *serverData) UpdateGline(mask string, active *bool, expireTS int64, reason string) bool {
+func (s *serverData) AddOrUpdateGline(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64, reason string, active *bool, line string) bool {
 	mask_l := strings.Split(mask, "@")
 	if len(mask_l) < 2 {
 		return false
 	}
 	ip := mask_l[1]
-	log.Printf("DEBUG: serverData.UpdateGline(): ip=%s\n", ip)
-	if glines, exp_glines, err := s.CheckGline(ip); err == nil {
-		for _, entry := range glines {
-			emask := entry.Mask()
-			log.Printf("DEBUG: serverData.UpdateGline(): Comparing %s and %s in glines\n", mask, emask)
-			if strings.EqualFold(mask, emask) {
-				entry.UpdateGline(active, expireTS, reason)
-				return true
-			}
+
+	var ipnet *net.IPNet
+	entries, err := s.Cranger.ContainingNetworks(net.ParseIP(ip))
+	if err != nil {
+		var err2 error
+		ip = AddCidrToIP(ip)
+		_, ipnet, err2 = net.ParseCIDR(ip)
+		if err2 != nil {
+			log.Printf("Debug: net.ParseCIDR(%s) failed. Line: %s\n", ip, line)
+			return false
 		}
-		for _, entry := range exp_glines {
-			emask := entry.Mask()
-			log.Printf("DEBUG: serverData.UpdateGline(): Comparing %s and %s in exp_glines\n", mask, emask)
-			if strings.EqualFold(mask, emask) {
-				entry.UpdateGline(active, expireTS, reason)
-				return true
-			}
-		}
-	} else {
-		fmt.Println("Error in serverData.UpdateGline(): invalid mask provided")
+		entries, err = s.Cranger.CoveringOrCoveredNetworks(*ipnet)
 	}
-	return false
+	if err != nil {
+		log.Fatalf("Debug: serverData.UpdateGline(): ip=%s, error = %s\n", ip, err.Error())
+	}
+
+	//log.Printf("Entries for %s:\n", ip)
+	for _, glines := range entries {
+		// Cast e (cidranger.RangerEntry to struct glinesData
+		gd, ok := glines.(*glinesData)
+		if !ok {
+			log.Fatalln("This shouldn't have happened")
+			continue
+		}
+		if ipnet.Network() == gd.IpNet.Network() {
+			for _, entry := range gd.Glines {
+				emask := entry.Mask()
+				if strings.EqualFold(mask, emask) {
+					log.Printf("DEBUG: serverData.UpdateGline(): Update gline mask=%s\n", mask)
+					entry.Update(active, expireTS, reason)
+					return true
+				}
+			}
+			if active == nil {
+				log.Printf("active is nil for a new gline. That is odd. Gline: %s\n", mask)
+			}
+			// Add new gline, but another gline exists for that IP, but with a differnet user@.
+			log.Printf("DEBUG: serverData.UpdateGline(): Add new gline for mask=%s, but at least one other gline exists with another user for that IP.\n", mask)
+			gd.Glines = append(gd.Glines, newGlineData(gd.IpNet, user, mask, expireTS, lastModTS, reason, true))
+			return true
+		}
+	}
+	// Add new gline
+	if active == nil || reason == "" {
+		log.Fatalf("(Insert gline bug) active or reason value is nil for this gline: %s\n", mask)
+	}
+	//s.AddNewGline(newGlineData(*ipnet, user, mask, expireTS, lastModTS, reason, *active))
+	newGline := newGlineData(*ipnet, user, mask, expireTS, lastModTS, reason, *active)
+	gList := make([]*glineData, 0, 5)
+	gList = append(gList, newGline)
+	glineDataList := newGlinesData(*ipnet, gList)
+	s.Cranger.Insert(glineDataList)
+	return true
 }
 
 // This method accepts an IP as parameter and returns two lists:
@@ -144,11 +191,13 @@ func (s *serverData) UpdateGline(mask string, active *bool, expireTS int64, reas
 //
 //	If a gline exists on *@1.2.3.0/24, CheckGline("1.2.3.0/31") will return nothing
 //	If a gline exists on *@1.2.3.0/24, CheckGline("1.2.0.0/16") will return the gline
-func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
+func (s *serverData) CheckGline(ip string, exactCidr bool) ([]*glineData, []*glineData, error) {
+	var ipnet *net.IPNet
 	entries, err := s.Cranger.ContainingNetworks(net.ParseIP(ip))
 	if err != nil {
+		var err2 error
 		ip = AddCidrToIP(ip)
-		_, ipnet, err2 := net.ParseCIDR(ip)
+		_, ipnet, err2 = net.ParseCIDR(ip)
 		if err2 != nil {
 			log.Printf("Debug: net.ParseCIDR(%s) failed\n", ip)
 			return nil, nil, err2
@@ -162,30 +211,23 @@ func (s *serverData) CheckGline(ip string) ([]*glineData, []*glineData, error) {
 	inactiveGlines := make([]*glineData, 0, len(entries))
 
 	//log.Printf("Entries for %s:\n", ip)
-	for _, e := range entries {
-
-		// Cast e (cidranger.RangerEntry to struct glineData
-		entry, ok := e.(*glineData)
+	for _, glines := range entries {
+		// Cast e (cidranger.RangerEntry to struct glinesData
+		entry, ok := glines.(*glinesData)
 		if !ok {
 			log.Fatalln("This shouldn't have happened")
 			continue
 		}
-		if entry.IsGlineActive() {
-			activeGlines = append(activeGlines, entry)
-		} else {
-			inactiveGlines = append(inactiveGlines, entry)
+		for _, e := range entry.Glines {
+			if exactCidr && ipnet.Network() != entry.IpNet.Network() {
+				continue
+			}
+			if e.IsGlineActive() {
+				activeGlines = append(activeGlines, e)
+			} else {
+				inactiveGlines = append(inactiveGlines, e)
+			}
 		}
-
-		/*
-			// Get network (converted to string by function)
-			n := entry.NetworkStr()
-
-			// Get mask
-			mask := entry.Mask()
-
-			// Display
-			fmt.Println("\t", n, mask)
-		*/
 	}
 	return activeGlines, inactiveGlines, err
 }
