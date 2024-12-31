@@ -252,7 +252,7 @@ const handleKeyPress = (event) => {
         Request removal
       </button>
     </div>
-      <div v-if="showRequestForm" class="request-form mt-4">
+      <div v-if="showRequestForm" class="request-form mt-4 key-value-list">
         <div class="form-row">
           <label class="label">Nickname:</label>
           <input type="text" v-model="nickname" class="input">
@@ -454,7 +454,6 @@ body {
 
 /* Label styling */
 .request-form label {
-  width: 16rem; /* Fixed width for labels */
   text-align: left; /* Align label text to the right */
   font-size: 1rem;
   font-weight: bold;
@@ -498,7 +497,6 @@ body {
 }
 
 .request-form .input {
-  width: 100%;
   padding: 0.75rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.25rem;
