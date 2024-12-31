@@ -102,7 +102,7 @@ const lookupGline = async () => {
     glines.value = response.data
 
     if (Array.isArray(response.data) && response.data.length === 0) {
-      errormsg.value = 'No Glines found'
+      errormsg.value = 'No G-lines found'
     }
 
   } catch (error) {
@@ -111,8 +111,8 @@ const lookupGline = async () => {
       return
     }
     errormsg.value = 'API call error ' + error.response.status + ': ' + error.response.data
-    //errormsg.value = 'Failed to lookup Gline: ' + error.message
-    console.error('Failed to lookup Gline:', error)
+    //errormsg.value = 'Failed to lookup G-line: ' + error.message
+    console.error('Failed to lookup G-line:', error)
   }
 }
 
@@ -200,7 +200,7 @@ const handleKeyPress = (event) => {
 
 <template>
   <div class="container mx-auto px-4 py-8">
-    <h1>Gline Lookup</h1>
+    <h1>G-line Lookup</h1>
     <p>Your IP: {{ myip }}</p>
     <div class="input-container">
       <label class="label">IP address:</label>
@@ -217,7 +217,7 @@ const handleKeyPress = (event) => {
         @click="lookupGline"
         class="button"
       >
-        Lookup Gline
+        Lookup G-line
       </button>
     </div>
     
@@ -226,41 +226,23 @@ const handleKeyPress = (event) => {
     <div v-if="glines.length > 0" class="table-container">
       <span class="label-title">Search results</span>
       <div v-for="gline in glines" :key="gline.mask" class="gline">
-        <div class="gline-mask">
-          <span class="gline-info-title">Gline:</span>
-          {{ gline.mask }}
+        <div>
+          <span class="gline-info-title">G-line: </span>
+          <span class="gline-mask">{{ gline.mask }}</span>
         </div>
-        <ul class="gline-infos">
-          <span class="gline-info-title">Reason:</span>
-          {{ formatReason(gline.reason) }}
-        </ul>
-        <ul class="gline-infos">
-          <span class="gline-info-title">Expiration: </span>
-          <span v-html="getExpirationString(gline)"></span>
-        </ul>
+        <dl class="key-value-list gline-infos">
+          <div>
+            <dt>Reason:</dt>
+            <dd>{{ formatReason(gline.reason) }}</dd>
+          </div>
+          <div>
+            <dt>Expiration: </dt>
+            <dd v-html="getExpirationString(gline)"></dd>
+          </div>
+        </dl>
         <div v-if="gotGlinesResults" class="gline-results">
           {{ gline.message }}
         </div>
-      </div>
-      <div>
-        <thead>
-          <tr>
-            <th class="table-header">Mask</th>
-            <th class="table-header">Reason</th>
-            <th class="table-header">Expiration</th>
-            <th v-if="gotGlinesResults" class="table-header">Request status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="gline in glines" :key="gline.mask">
-            <td class="table-cell">{{ gline.mask }}</td>
-            <td class="table-cell">{{ formatReason(gline.reason) }}</td>
-            <td class="table-cell">
-              <span v-html="getExpirationString(gline)"></span>
-            </td>
-            <td v-if="gotGlinesResults" class="table-cell gline-results">{{ gline.message }}</td>
-          </tr>
-        </tbody>
       </div>
       <button 
         v-if="!showRequestForm && requestButtonEnabled"
@@ -551,8 +533,28 @@ body {
   font-weight: bold;
 }
 .gline-mask {
+  margin-left: 0.5rem;
+  color: lightseagreen;
 }
-.gline-infos {
+.key-value-list {
+    display: grid;
+    grid-template-columns: auto 1fr; /* Keys in the first column, values in the second column */
+    gap: 1rem 2rem; /* Spacing between rows and columns */
+    align-items: center; /* Align keys and values vertically */
+    padding-left: 2rem;
+  }
+.key-value-list > div {
+  display: contents; /* Ensures each pair behaves as a row */
 }
+.key-value-list dt {
+  font-weight: bold;
+  margin: 0;
+  align-self: start;
+}
+.key-value-list dd {
+  margin: 0;
+  align-self: start;
+}
+
 </style>
 
