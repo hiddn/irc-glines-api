@@ -47,6 +47,11 @@ onMounted(() => {
   }
   getUserIP()
   //loadRecaptcha()
+  window.recaptchaOnloadCallback = () => {
+    console.log('Recaptcha loaded')
+    loadRecaptcha()
+  }
+
 })
 
 function startTasks() {
@@ -121,7 +126,7 @@ const lookupGline = async () => {
 
 const requestRemoval = async (needRecaptcha) => {
   if (needRecaptcha && !recaptchaToken.value) {
-    loadRecaptcha()
+    showRecaptcha()
     return
   }
   recaptchaModalVisible.value = false
@@ -172,7 +177,7 @@ const requestRemoval = async (needRecaptcha) => {
       return
     }
     if (error.status === 403) {
-      loadRecaptcha()
+      showRecaptcha()
       return
     }
     errormsg.value = 'API call fail for requestRemoval(): ' + error.status + error.response.data
@@ -209,9 +214,13 @@ const handleKeyPress = (event) => {
   }
 }
 
-const loadRecaptcha = () => {
+function showRecaptcha() {
   recaptchaToken.value = ''
   recaptchaModalVisible.value = true
+}
+
+const loadRecaptcha = () => {
+  document.getElementById('recaptcha').innerHTML = ''
   if (window.grecaptcha) {
     window.grecaptcha.render('recaptcha', {
       sitekey: config.recaptcha_site_key,
@@ -233,6 +242,7 @@ const recaptchaCB = async () => {
   const recaptchaResponse = window.grecaptcha.getResponse()
   if (!recaptchaResponse) {
     alert('Please complete the reCAPTCHA.')
+    reloadRecaptcha()
     return
   }
 
@@ -353,6 +363,7 @@ function toggleShowRequestForm() {
   </div>
   <div id="recaptcha-modal" tabindex="1" class="modal" v-bind:style="{ display: recaptchaModalVisible ? 'block' : 'none' }">
     <div id="recaptcha" class="g-recaptcha"></div>
+    <!--div id="recaptcha" class="g-recaptcha" :data-sitekey="config.recaptcha_site_key"></div-->
   </div>
 
 </template>
