@@ -358,6 +358,10 @@ func (a *ApiData) EvalGlineRules(gline *RetApiData, webIP string) (autoremove bo
 }
 
 func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, webIP string, in *api_requestrem_struct) string {
+	var pluralStr string = ""
+	if len(list) > 1 {
+		pluralStr = "es"
+	}
 	emailContent := fmt.Sprintf(`
 		<div>
 		<h2>User infos: </h2>
@@ -387,15 +391,15 @@ func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, webIP string, in *api_re
 			<td>%s</td>
 			</tr>
 		</table>
-		</div>`, in.Nickname, in.RealName, in.Email, webIP, in.IP, in.UserMessage)
+		</div>`, in.Nickname, in.RealName, in.Email, webIP, in.IP, strings.ReplaceAll(in.UserMessage, "\n", "<br>"))
 	emailContent += fmt.Sprintf(`
 		<table style="max-width: 500px; margin: 0 0; padding: 0 0;">
 		<tr>
 			<td>
 			<div style="max-width: 2xl; margin: 0; margin-bottom: 2rem;">
 				<span style="display: block; text-align: left; margin-bottom: 1rem; margin-top: 3rem; font-weight: bold; font-size: 1.25rem;">
-				  G-lines match for: %v
-				</span>`, in.IP)
+				  <a href=\"%v\">G-line match%s for %v</a>:
+				</span>`, fmt.Sprintf("%s?ip=%s", a.Config.URL, in.IP), pluralStr, in.IP)
 	for _, gline := range list {
 		emailContent += fmt.Sprintf(`
 				<!-- G-line item template - repeat for each g-line -->
@@ -429,8 +433,7 @@ func getExpireTSString(gline *RetApiData) string {
 	now := time.Now().Unix()
 	isExpired := gline.ExpireTS <= now
 
-	//exp := time.Unix(gline.ExpireTS, 0).UTC().Format(time.RFC3339) + "<br/>"
-	exp := time.Unix(gline.ExpireTS, 0).UTC().Format(formatDate(gline.ExpireTS)) + "<br/>"
+	exp := time.Unix(gline.ExpireTS, 0).UTC().Format(time.UnixDate) + "<br/>"
 
 	if isExpired {
 		exp += `<b><span style="color: green;">EXPIRED</span>: `
@@ -448,11 +451,6 @@ func getExpireTSString(gline *RetApiData) string {
 	}
 
 	return exp
-}
-
-func formatDate(timestamp int64) string {
-	t := time.Unix(timestamp, 0)
-	return t.Format("Monday, Jan 2, 2006 3:04:05 PM UTC")
 }
 
 func (a *ApiData) confirmEmailAPIGet(c echo.Context) error {
