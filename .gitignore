@@ -3,3 +3,11 @@ config.json
 app/config.json
 irc-glines-api
 irc
+mod.abuse_glines/abuse_glines
+.vscode/
+core
+deploy-frontend.sh
+bak.*
+*.bak
+mod.abuse_glines/bak.*
+mod.abuse_glines/frontent-glines/.vite/
