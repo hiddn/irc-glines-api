@@ -129,7 +129,7 @@ func Api_init(conf Configuration) *echo.Echo {
 	//config = conf
 
 	a.TasksData = Tasks_init(86400)
-	e.Use(middleware.BodyLimit("1K"))
+	e.Use(middleware.BodyLimit("4K"))
 	e.Use(middleware.Logger())
 	e.GET("/api/confirmemail/:confirmstring", a.confirmEmailAPIGet)
 	e.GET("/api/tasks/:uuid", a.TasksData.GetTasksStatus_api)
