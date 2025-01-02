@@ -49,12 +49,17 @@ onMounted(() => {
   }
   getUserIP()
   isComponentMounted.value = true
-  checkAndLoadRecaptcha()
+  const script = document.createElement('script')
+  script.src = 'https://www.google.com/recaptcha/api.js?onload=recaptchaOnloadCallback&render=explicit'
+  script.async = true
+  script.defer = true
+  document.head.appendChild(script)
 })
 
 // Check if both conditions are met and call loadRecaptcha
 const checkAndLoadRecaptcha = () => {
   if (isRecaptchaLoaded.value && isComponentMounted.value) {
+    console.debug('Recaptcha loaded')
     loadRecaptcha()
   }
 }
@@ -227,6 +232,11 @@ const handleKeyPress = (event) => {
 function showRecaptcha() {
   recaptchaToken.value = ''
   recaptchaModalVisible.value = true
+  reloadRecaptcha()
+}
+
+function hideRecaptcha() {
+  recaptchaModalVisible.value = false
 }
 
 const loadRecaptcha = () => {
@@ -256,7 +266,9 @@ const recaptchaCB = async () => {
     return
   }
 
+  console.log('reCAPTCHA token:', recaptchaResponse)
   recaptchaToken.value = recaptchaResponse
+  console.log('recaptchaToken.value:', recaptchaToken.value)
   recaptchaModalVisible.value = false
   requestRemoval(false)
   return
