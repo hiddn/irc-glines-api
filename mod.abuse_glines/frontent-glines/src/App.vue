@@ -16,6 +16,8 @@ const glines = ref([])
 const paramIP = ref('')
 const recaptchaToken = ref('')
 const recaptchaModalVisible = ref(false)
+const isRecaptchaLoaded = ref(false)
+const isComponentMounted = ref(false)
 
 const showRequestForm = ref(false)
 const requestButtonEnabled = ref(false)
@@ -46,13 +48,21 @@ onMounted(() => {
     input_ip.select();
   }
   getUserIP()
-  //loadRecaptcha()
-  window.recaptchaOnloadCallback = () => {
-    console.log('Recaptcha loaded')
+  isComponentMounted.value = true
+  checkAndLoadRecaptcha()
+})
+
+// Check if both conditions are met and call loadRecaptcha
+const checkAndLoadRecaptcha = () => {
+  if (isRecaptchaLoaded.value && isComponentMounted.value) {
     loadRecaptcha()
   }
+}
 
-})
+window.recaptchaOnloadCallback = () => {
+  isRecaptchaLoaded.value = true
+  checkAndLoadRecaptcha()
+}
 
 function startTasks() {
   if (timerTasksId.value === null) {
@@ -248,6 +258,7 @@ const recaptchaCB = async () => {
 
   recaptchaToken.value = recaptchaResponse
   recaptchaModalVisible.value = false
+  requestRemoval(false)
   return
 
   // Submit the reCAPTCHA token to the backend
