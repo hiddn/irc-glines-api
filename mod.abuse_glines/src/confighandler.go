@@ -25,8 +25,7 @@ type Configuration struct {
 	Networks           []string
 	ApiKey             string
 	Rules              []rules
-	Recaptchakey       string
-	Recaptchasecretkey string
+	RecaptchaSecretKey string
 	Smtp               SmtpConfig
 	AbuseEmail         string
 	FromEmail          string

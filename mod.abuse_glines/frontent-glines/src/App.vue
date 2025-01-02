@@ -6,7 +6,7 @@ import './style.css'
 const config = {
   network: 'Undernet',
   glinelookup_url: '/api2/glinelookup/:network/:ip',
-  api_key: import.meta.env.VITE_API_KEY
+  recaptcha_site_key: '6LfHTqwqAAAAANeeZSuospbpzNBPbfQhMnAo2rwu'
 }
 
 const myip = ref('')
@@ -38,12 +38,13 @@ onMounted(() => {
   const params = new URLSearchParams(window.location.search);
   paramIP.value = params.get('ip')
   if (paramIP.value != null) {
-      ip.value = paramIP.value
-      input_ip.value = paramIP.value;
-      input_ip.focus();
-      input_ip.select();
-    }
+    ip.value = paramIP.value
+    input_ip.value = paramIP.value;
+    input_ip.focus();
+    input_ip.select();
+  }
   getUserIP()
+  //loadRecaptcha()
 })
 
 function startTasks() {
@@ -196,6 +197,52 @@ const handleKeyPress = (event) => {
   }
 }
 
+const loadRecaptcha = () => {
+  if (window.grecaptcha) {
+    setTimeout(() => {
+    window.grecaptcha.render('recaptcha', {
+      sitekey: config.recaptcha_site_key,
+      callback: handleSubmit,
+      "expired-callback": reloadRecaptcha,
+      "error-callback": reloadRecaptcha,
+      theme: "dark",
+      size: "compact",
+    })});
+  }
+  else {
+    alert("Recaptcha not found")
+  }
+}
+const reloadRecaptcha = () => {
+  window.grecaptcha.reset();
+}
+const handleSubmit = async () => {
+  const recaptchaResponse = window.grecaptcha.getResponse();
+  if (!recaptchaResponse) {
+    alert('Please complete the reCAPTCHA.');
+    return;
+  }
+
+  // Submit the reCAPTCHA token to the backend
+  const response = await fetch('/api/verify-captcha', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: recaptchaResponse }),
+  });
+  const result = await response.json();
+  if (!result.success) {
+    alert('Verification failed.');
+    reloadRecaptcha();
+  }
+}
+
+function toggleShowRequestForm() {
+  showRequestForm.value = !showRequestForm.value
+  if (showRequestForm.value) {
+    loadRecaptcha()
+  }
+}
+
 </script>
 
 <template>
@@ -245,8 +292,8 @@ const handleKeyPress = (event) => {
         </div>
       </div>
       <button 
-        v-if="!showRequestForm && requestButtonEnabled"
-        @click="showRequestForm = true"
+        v-if="!showRequestForm"
+        @click="toggleShowRequestForm()"
         class="button mt-4"
       >
         Request removal
@@ -269,6 +316,7 @@ const handleKeyPress = (event) => {
           <label class="label">Message:</label>
           <textarea v-model="user_message" class="input"></textarea>
         </div>
+        <div id="recaptcha" class="g-recaptcha" :data-sitekey="config.recaptcha_site_key"></div>
         <div class="form-button">
           <button 
             id="removeButton"

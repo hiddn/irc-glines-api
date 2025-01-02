@@ -25,7 +25,6 @@ type ApiData struct {
 	ConfirmEmailMap          map[string]*confirmemail_struct
 	confirmEmailMapLastClean int64
 	TasksData                *TasksData
-	//Captcha                  recaptcha.ReCAPTCHA
 }
 
 type confirmemailapi_struct struct {
@@ -97,13 +96,14 @@ func newRetApiData(mask, reason, ip, message string, expireTS, lastModTS, hoursU
 }
 
 type api_requestrem_struct struct {
-	UUID        string `json:"uuid"`
-	Network     string `json:"network"`
-	IP          string `json:"ip"`
-	Nickname    string `json:"nickname"`
-	RealName    string `json:"realname"`
-	Email       string `json:"email"`
-	UserMessage string `json:"user_message"`
+	UUID           string `json:"uuid"`
+	Network        string `json:"network"`
+	IP             string `json:"ip"`
+	Nickname       string `json:"nickname"`
+	RealName       string `json:"realname"`
+	Email          string `json:"email"`
+	UserMessage    string `json:"user_message"`
+	RecaptchaToken string `json:"recaptcha_token"`
 }
 
 type api_requestrem_ret_struct struct {
@@ -131,10 +131,11 @@ func Api_init(conf Configuration) *echo.Echo {
 	a.TasksData = Tasks_init(86400)
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
-	e.POST("/api/requestrem", a.requestRemGlineApi)
 	e.GET("/api/confirmemail/:confirmstring", a.confirmEmailAPIGet)
-	e.POST("/api/confirmemail/:confirmstring", a.confirmEmailAPI)
 	e.GET("/api/tasks/:uuid", a.TasksData.GetTasksStatus_api)
+	e.POST("/api/requestrem", a.requestRemGlineApi)
+	e.POST("/api/confirmemail/:confirmstring", a.confirmEmailAPI)
+	e.POST("/api/verify-captcha", a.verifyCaptcha)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
@@ -222,6 +223,11 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		}
 	}
 	if !emailConfirmed {
+		/*
+			if recaptchaSuccess, err := verifyCaptcha(c, a.Config.RecaptchaSecretKey, in.RecaptchaToken); !recaptchaSuccess {
+				return err
+			}
+		*/
 		ce := newConfirmEmailStruct(in.Network, in.IP, in.Email, UUID)
 		confirmLink := fmt.Sprintf("%s/api/confirmemail/%s", a.Config.URL, url.PathEscape(ce.ConfirmString))
 		ce.Task = a.TasksData.AddTask(UUID, "confirmemail")
