@@ -352,7 +352,7 @@ function toggleShowRequestForm() {
       </div>
   </div>
   <div id="recaptcha-modal" tabindex="1" class="modal" v-bind:style="{ display: recaptchaModalVisible ? 'block' : 'none' }">
-    <div id="recaptcha" class="g-recaptcha" :data-sitekey="config.recaptcha_site_key"></div>
+    <div id="recaptcha" class="g-recaptcha"></div>
   </div>
 
 </template>
