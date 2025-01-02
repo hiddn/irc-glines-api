@@ -153,7 +153,7 @@ const requestRemoval = async (needRecaptcha) => {
     realname: realname.value,
     email: email.value,
     user_message: user_message.value,
-    'recaptcha_token': recaptchaToken.value
+    'recaptcha_token': recaptchaToken.value,
   }
   isSubmitEnabled.value = true
   requestButtonEnabled.value = false
@@ -162,40 +162,40 @@ const requestRemoval = async (needRecaptcha) => {
     const response = await axios.post('/api/requestrem', requestData, {
       headers: {
         'Content-Type': 'application/json',
-        //'Authorization': `Bearer ${config.api_key}`
-      }
+      },
     })
     uuid.value = response.data.uuid
     if (response.status === 202) {
       errormsg.value = response.data.message
       showRequestForm.value = false
-      //isSubmitEnabled.value = true
       startTasks()
-    }
-    else if (response.status === 200) {
-      //removalResponse.value = response.data.glines
+    } else if (response.status === 200) {
       errormsg.value = ''
       glines.value = response.data.glines
       gotGlinesResults.value = true
       isSubmitEnabled.value = false
       showRequestForm.value = false
-      if (response.data.request_sent_via_email == true) {
+      if (response.data.request_sent_via_email) {
         errormsg.value = 'Removal request sent via email to the Abuse Team.'
       }
     }
     console.log('Removal request response:', response.data)
   } catch (error) {
     requestButtonEnabled.value = true
-    console.error('Failed to request removal:', error)
-    if (error.status === 400) {
+    console.error('Failed to request removal:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    })
+    if (error.response?.status === 400) {
       errormsg.value = 'Invalid request data: ' + error.response.data
       return
     }
-    if (error.status === 403) {
+    if (error.response?.status === 403) {
       showRecaptcha()
       return
     }
-    errormsg.value = 'API call fail for requestRemoval(): ' + error.status + error.response.data
+    errormsg.value = 'API call failed: ' + error.response?.status + ' ' + error.response?.data
   }
 }
 
