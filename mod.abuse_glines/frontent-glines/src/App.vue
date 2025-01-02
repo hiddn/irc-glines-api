@@ -230,7 +230,7 @@ const handleSubmit = async () => {
     body: JSON.stringify({ token: recaptchaResponse }),
   });
   const result = await response.json();
-  if (!result.success) {
+  if (response.status != 200) {
     alert('Verification failed.');
     reloadRecaptcha();
   }

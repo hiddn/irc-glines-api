@@ -155,6 +155,8 @@ func isAPIOpen(c echo.Context) bool {
 		return true
 	case "/api/tasks/:uuid":
 		return true
+	case "/api/verify-captcha":
+		return true
 	default:
 		return false
 	}
