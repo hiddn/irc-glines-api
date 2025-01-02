@@ -14,6 +14,8 @@ const ip = ref('')
 const errormsg = ref('')
 const glines = ref([])
 const paramIP = ref('')
+const recaptchaToken = ref('')
+const recaptchaModalVisible = ref(false)
 
 const showRequestForm = ref(false)
 const requestButtonEnabled = ref(false)
@@ -117,7 +119,12 @@ const lookupGline = async () => {
   }
 }
 
-const requestRemoval = async () => {
+const requestRemoval = async (needRecaptcha) => {
+  if (needRecaptcha && !recaptchaToken.value) {
+    loadRecaptcha()
+    return
+  }
+  recaptchaModalVisible.value = false
   const requestData = {
     uuid: uuid.value,
     network: config.network,
@@ -125,7 +132,8 @@ const requestRemoval = async () => {
     nickname: nickname.value,
     realname: realname.value,
     email: email.value,
-    user_message: user_message.value
+    user_message: user_message.value,
+    'recaptcha_token': recaptchaToken.value
   }
   isSubmitEnabled.value = true
   requestButtonEnabled.value = false
@@ -163,6 +171,10 @@ const requestRemoval = async () => {
       errormsg.value = 'Invalid request data: ' + error.response.data
       return
     }
+    if (error.status === 403) {
+      loadRecaptcha()
+      return
+    }
     errormsg.value = 'API call fail for requestRemoval(): ' + error.status + error.response.data
   }
 }
@@ -181,7 +193,7 @@ const GetTasks = async () => {
           emailConfirmed.value = task.data
           console.log('Email confirmed:', emailConfirmed.value)
           errormsg.value = 'Email confirmed. Submitting removal request...'
-          requestRemoval()
+          requestRemoval(false)
           stopTasks()
         }
       }
@@ -198,16 +210,17 @@ const handleKeyPress = (event) => {
 }
 
 const loadRecaptcha = () => {
+  recaptchaToken.value = ''
+  recaptchaModalVisible.value = true
   if (window.grecaptcha) {
-    setTimeout(() => {
     window.grecaptcha.render('recaptcha', {
       sitekey: config.recaptcha_site_key,
-      callback: handleSubmit,
+      callback: recaptchaCB,
       "expired-callback": reloadRecaptcha,
       "error-callback": reloadRecaptcha,
       theme: "dark",
       size: "compact",
-    })});
+    })
   }
   else {
     alert("Recaptcha not found")
@@ -216,31 +229,32 @@ const loadRecaptcha = () => {
 const reloadRecaptcha = () => {
   window.grecaptcha.reset();
 }
-const handleSubmit = async () => {
-  const recaptchaResponse = window.grecaptcha.getResponse();
+const recaptchaCB = async () => {
+  const recaptchaResponse = window.grecaptcha.getResponse()
   if (!recaptchaResponse) {
-    alert('Please complete the reCAPTCHA.');
-    return;
+    alert('Please complete the reCAPTCHA.')
+    return
   }
+
+  recaptchaToken.value = recaptchaResponse
+  recaptchaModalVisible.value = false
+  return
 
   // Submit the reCAPTCHA token to the backend
   const response = await fetch('/api/verify-captcha', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: recaptchaResponse }),
-  });
-  const result = await response.json();
+  })
+  const result = await response.json()
   if (response.status != 200) {
-    alert('Verification failed.');
-    reloadRecaptcha();
+    alert('Verification failed.')
+    reloadRecaptcha()
   }
 }
 
 function toggleShowRequestForm() {
   showRequestForm.value = !showRequestForm.value
-  if (showRequestForm.value) {
-    loadRecaptcha()
-  }
 }
 
 </script>
@@ -316,11 +330,10 @@ function toggleShowRequestForm() {
           <label class="label">Message:</label>
           <textarea v-model="user_message" class="input"></textarea>
         </div>
-        <div id="recaptcha" class="g-recaptcha" :data-sitekey="config.recaptcha_site_key"></div>
         <div class="form-button">
           <button 
             id="removeButton"
-            @click="requestRemoval"
+            @click="requestRemoval(true)"
             :disabled="isAllFieldsNonEmpty || !isSubmitEnabled"
             class="button mt-4"
           >
@@ -338,6 +351,10 @@ function toggleShowRequestForm() {
         </div>
       </div>
   </div>
+  <div id="recaptcha-modal" tabindex="1" class="modal" v-bind:style="{ display: recaptchaModalVisible ? 'block' : 'none' }">
+    <div id="recaptcha" class="g-recaptcha" :data-sitekey="config.recaptcha_site_key"></div>
+  </div>
+
 </template>
 
 <script>
@@ -612,6 +629,35 @@ body {
   margin: 0;
   align-self: start;
 }
+
+recaptcha-modal {
+  display: none;
+}
+
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  padding-top: 20px; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  min-height: 200px;
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
+  text-align: center;
+  align-content: center;
+}
+
+.g-recaptcha {
+  display: grid;
+  justify-content: center;
+}
+
+
 @media (max-width: 768px) {
   /* Mobile styles here */
   body {

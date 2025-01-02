@@ -225,11 +225,9 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		}
 	}
 	if !emailConfirmed {
-		/*
-			if recaptchaSuccess, err := verifyCaptcha(c, a.Config.RecaptchaSecretKey, in.RecaptchaToken); !recaptchaSuccess {
-				return err
-			}
-		*/
+		if recaptchaSuccess, err := verifyCaptcha_tmp(c, a.Config.RecaptchaSecretKey, in.RecaptchaToken); !recaptchaSuccess {
+			return err
+		}
 		ce := newConfirmEmailStruct(in.Network, in.IP, in.Email, UUID)
 		confirmLink := fmt.Sprintf("%s/api/confirmemail/%s", a.Config.URL, url.PathEscape(ce.ConfirmString))
 		ce.Task = a.TasksData.AddTask(UUID, "confirmemail")
