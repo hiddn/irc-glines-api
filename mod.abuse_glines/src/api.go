@@ -135,7 +135,7 @@ func Api_init(conf Configuration) *echo.Echo {
 	e.GET("/api/tasks/:uuid", a.TasksData.GetTasksStatus_api)
 	e.POST("/api/requestrem", a.requestRemGlineApi)
 	e.POST("/api/confirmemail/:confirmstring", a.confirmEmailAPI)
-	e.POST("/api/verify-captcha", a.verifyCaptcha)
+	e.POST("/api/verify-captcha", a.verifyCaptchaStandAloneAPI)
 	e.Use(middleware.Recover())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
@@ -225,8 +225,13 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		}
 	}
 	if !emailConfirmed {
-		if recaptchaSuccess, err := verifyCaptcha_tmp(c, a.Config.RecaptchaSecretKey, in.RecaptchaToken); !recaptchaSuccess {
-			return err
+		if recaptchaStatusCode, recaptchaMsg := verifyCaptcha(a.Config.RecaptchaSecretKey, in.RecaptchaToken); recaptchaStatusCode != 200 {
+			return c.JSON(recaptchaStatusCode, map[string]string{"message": recaptchaMsg})
+		}
+		err = nil
+		if !IsEmailValid(in.Email) {
+			log.Printf("Invalid email address: %s\n", in.Email)
+			return c.JSON(http.StatusBadRequest, fmt.Sprintf("Invalid email address: %s", in.Email))
 		}
 		ce := newConfirmEmailStruct(in.Network, in.IP, in.Email, UUID)
 		confirmLink := fmt.Sprintf("%s/api/confirmemail/%s", a.Config.URL, url.PathEscape(ce.ConfirmString))
@@ -234,10 +239,6 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		ce.Task.SetData(ce)
 		ce.Task.DataVisibleToUser = in.Email
 		body := fmt.Sprintf("Hi,\n\nIn order to complete the gline removal request on %s, you need to click this link: %s\n\nAbuse's self gline-removal system", in.Network, confirmLink)
-		if !IsEmailValid(ce.EmailAddr) {
-			log.Printf("Invalid email address: %s\n", ce.EmailAddr)
-			return c.JSON(http.StatusBadRequest, fmt.Sprintf("Invalid email address: %s", ce.EmailAddr))
-		}
 		go func() {
 			ce.Task.Start()
 			err = SendEmail(ce.EmailAddr, a.Config.FromEmail, "", "Email confirmation required", body, a.Config.Smtp, false)

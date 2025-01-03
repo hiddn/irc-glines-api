@@ -2,6 +2,7 @@ package abuse_glines
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -15,7 +16,7 @@ type RecaptchaResponse struct {
 	ErrorCodes  []string `json:"error-codes,omitempty"`
 }
 
-func (a *ApiData) verifyCaptcha(c echo.Context) error {
+func (a *ApiData) verifyCaptchaStandAloneAPI(c echo.Context) error {
 	type request struct {
 		Token string `json:"token"`
 	}
@@ -48,26 +49,26 @@ func (a *ApiData) verifyCaptcha(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Captcha verified successfully"})
 }
 
-func verifyCaptcha_tmp(c echo.Context, secret string, token string) (bool, error) {
+func verifyCaptcha(secret string, token string) (int, string) {
 	verifyURL := "https://www.google.com/recaptcha/api/siteverify"
 	resp, err := http.PostForm(verifyURL, url.Values{
 		"secret":   {secret},
 		"response": {token},
 	})
 	if err != nil {
-		return false, c.JSON(http.StatusInternalServerError, map[string]string{"error": "Verification failed"})
+		return http.StatusInternalServerError, "Verification failed"
 	}
 	defer resp.Body.Close()
 
 	var recaptchaResp RecaptchaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&recaptchaResp); err != nil {
-		return false, c.JSON(http.StatusInternalServerError, map[string]string{"error": "Invalid response from Google"})
+		return http.StatusInternalServerError, "Invalid response from Google"
 	}
 
 	if !recaptchaResp.Success {
-		return false, c.JSON(http.StatusForbidden, recaptchaResp)
+		return http.StatusForbidden, fmt.Sprintf("%v", recaptchaResp.ErrorCodes)
 	}
 
 	// Success: Proceed with your logic
-	return true, c.JSON(http.StatusOK, map[string]string{"message": "Captcha verified successfully"})
+	return http.StatusOK, "Captcha verified successfully"
 }

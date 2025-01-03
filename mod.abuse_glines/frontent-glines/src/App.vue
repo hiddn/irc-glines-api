@@ -313,7 +313,7 @@ const recaptchaCB = async () => {
     
     <p v-if="errormsg" class="error">{{ errormsg }}</p>
     
-    <div v-if="glines.length > 0" class="table-container">
+    <div v-if="glines?.length > 0" class="table-container">
       <span class="label-title">G-lines:</span>
       <div v-for="gline in glines" :key="gline.mask" class="gline">
         <div>
