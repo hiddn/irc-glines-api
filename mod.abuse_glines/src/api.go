@@ -278,9 +278,16 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		return c.JSON(http.StatusAccepted, ret)
 	} else {
 		// Email is confirmed. Overwrite the user-supplied email with the one that was confirmed before
-		freeRecaptchaBypass, ok := sess.Values["FreeRecaptchaBypass"].(int)
-		if !ok || freeRecaptchaBypass < 1 {
-			return c.JSON(http.StatusForbidden, map[string]string{"message": "Recaptcha required"})
+		var freeRecaptchaBypass int
+		if in.RecaptchaToken == "" {
+			freeRecaptchaBypass, ok := sess.Values["FreeRecaptchaBypass"].(int)
+			if !ok || freeRecaptchaBypass < 1 {
+				return c.JSON(http.StatusForbidden, map[string]string{"message": "Recaptcha required"})
+			}
+		} else {
+			if recaptchaStatusCode, recaptchaMsg := verifyCaptcha(a.Config.RecaptchaSecretKey, in.RecaptchaToken); recaptchaStatusCode != 200 {
+				return c.JSON(recaptchaStatusCode, map[string]string{"message": recaptchaMsg})
+			}
 		}
 		sess.Values["FreeRecaptchaBypass"] = freeRecaptchaBypass - 1
 		sess.Save(c.Request(), c.Response())

@@ -194,7 +194,6 @@ const requestRemoval = async (needRecaptcha) => {
     }
     if (error.response?.status === 403) {
       showRecaptcha()
-      return
     }
     errormsg.value = 'API call failed: ' + error.response?.status + ' ' + error.response?.data
   }
