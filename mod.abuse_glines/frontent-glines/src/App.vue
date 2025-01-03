@@ -259,7 +259,7 @@ const reloadRecaptcha = () => {
   window.grecaptcha.reset();
 }
 const recaptchaCB = async () => {
-  const recaptchaResponse = window.grecaptcha.getResponse()
+  const recaptchaResponse = window.grecaptcha?.getResponse()
   if (!recaptchaResponse) {
     alert('Please complete the reCAPTCHA.')
     reloadRecaptcha()
@@ -284,10 +284,6 @@ const recaptchaCB = async () => {
     alert('Verification failed.')
     reloadRecaptcha()
   }
-}
-
-function toggleShowRequestForm() {
-  showRequestForm.value = !showRequestForm.value
 }
 
 </script>
@@ -340,7 +336,7 @@ function toggleShowRequestForm() {
       </div>
       <button 
         v-if="!showRequestForm"
-        @click="toggleShowRequestForm()"
+        @click="showRequestForm = true"
         class="button mt-4"
       >
         Request removal
