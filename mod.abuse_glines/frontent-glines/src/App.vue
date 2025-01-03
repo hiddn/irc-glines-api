@@ -87,7 +87,7 @@ const removalResponse = ref([])
 // Try to get user's IP address
 const getUserIP = async () => {
   try {
-    const response = await axios.get('https://api.ipify.org?format=json')
+    const response = await axios.get('/api/get_ip')
     myip.value = response.data.ip
     if (paramIP.value == null) {
       const input_ip = document.getElementById('input_ip');

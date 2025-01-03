@@ -145,7 +145,9 @@ func Api_init(conf Configuration) *echo.Echo {
 	e.POST("/api/requestrem", a.requestRemGlineApi)
 	e.POST("/api/confirmemail/:confirmstring", a.confirmEmailAPI)
 	e.POST("/api/verify-captcha", a.verifyCaptchaStandAloneAPI)
-	e.Use(middleware.Recover())
+	e.GET("/api/get_ip", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"ip": getIP(c)})
+	})
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		Skipper: isAPIOpen,
 		Validator: func(key string, c echo.Context) (bool, error) {
@@ -170,6 +172,8 @@ func isAPIOpen(c echo.Context) bool {
 		return true
 	case "/api/verify-captcha":
 		return true
+	case "/api/get_ip":
+		return true
 	default:
 		return false
 	}
@@ -183,10 +187,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, "bad request")
 	}
-	webIP, _, err := net.SplitHostPort(c.Request().RemoteAddr)
-	if err != nil {
-		return err
-	}
+	remoteAddr := getIP(c)
 	log.Println("ip =", in.IP, ", net =", in.Network)
 	if !slices.Contains(a.Config.Networks, strings.ToLower(in.Network)) {
 		return c.JSON(http.StatusNotFound, "Network not found")
@@ -308,7 +309,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 			)
 			var autoremove bool
 			var emailToAbuseRequiredForThisGline bool
-			autoremove, emailToAbuseRequiredForThisGline, retData.Message = a.EvalGlineRules(retData, webIP)
+			autoremove, emailToAbuseRequiredForThisGline, retData.Message = a.EvalGlineRules(retData, remoteAddr)
 			if emailToAbuseRequiredForThisGline {
 				emailToAbuseRequired = true
 			}
@@ -328,7 +329,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		}
 		if emailToAbuseRequired {
 			fmt.Printf("Debug: Emailing abuse for %s\n", in.IP)
-			emailContent := a.PrepareAbuseEmail(list, webIP, &in)
+			emailContent := a.PrepareAbuseEmail(list, remoteAddr, &in)
 			err = SendEmail(a.Config.AbuseEmail, a.Config.FromEmail, in.Email, "G-line removal request", emailContent, a.Config.Smtp, true)
 			if err != nil {
 				log.Printf("Error sending email to abuse: %s\n", err)
@@ -341,7 +342,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 }
 
 // Returns true if the gline is being auto-removed
-func (a *ApiData) EvalGlineRules(gline *RetApiData, webIP string) (autoremove bool, emailToAbuseRequired bool, message string) {
+func (a *ApiData) EvalGlineRules(gline *RetApiData, remoteAddr string) (autoremove bool, emailToAbuseRequired bool, message string) {
 	var isGlineActive bool = true
 	autoremove = false
 	emailToAbuseRequired = true
@@ -383,8 +384,8 @@ func (a *ApiData) EvalGlineRules(gline *RetApiData, webIP string) (autoremove bo
 					message = fmt.Sprintf("Error parsing CIDR. Please report to %s", a.Config.AbuseEmail)
 					continue
 				}
-				webIP_net := net.ParseIP(webIP)
-				autoremove = cidr.Contains(webIP_net) && rule.Autoremove
+				remoteAddr_net := net.ParseIP(remoteAddr)
+				autoremove = cidr.Contains(remoteAddr_net) && rule.Autoremove
 				emailToAbuseRequired = !rule.NeverEmailAbuse && !autoremove
 				return
 			} else {
@@ -401,7 +402,7 @@ func (a *ApiData) EvalGlineRules(gline *RetApiData, webIP string) (autoremove bo
 	return
 }
 
-func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, webIP string, in *api_requestrem_struct) string {
+func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, remoteAddr string, in *api_requestrem_struct) string {
 	var pluralStr string = ""
 	if len(list) > 1 {
 		pluralStr = "es"
@@ -423,11 +424,11 @@ func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, webIP string, in *api_re
 			<td>%s</td>
 			</tr>
 			<tr>
-			<td style="font-weight: bold;">WebIP:</td>
+			<td style="font-weight: bold;">User IP:</td>
 			<td>%s</td>
 			</tr>
 			<tr>
-			<td style="font-weight: bold;">SearchIP:</td>
+			<td style="font-weight: bold;">Search IP:</td>
 			<td>%s</td>
 			</tr>
 			<tr>
@@ -435,7 +436,7 @@ func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, webIP string, in *api_re
 			<td>%s</td>
 			</tr>
 		</table>
-		</div>`, in.Nickname, in.RealName, in.Email, webIP, in.IP, strings.ReplaceAll(in.UserMessage, "\n", "<br>"))
+		</div>`, in.Nickname, in.RealName, in.Email, remoteAddr, in.IP, strings.ReplaceAll(in.UserMessage, "\n", "<br>"))
 	emailContent += fmt.Sprintf(`
 		<table style="max-width: 500px; margin: 0 0; padding: 0 0;">
 		<tr>
@@ -708,4 +709,26 @@ func (ce *confirmemail_struct) Expired() bool {
 
 func (a *ApiData) IsTimeToCheckExpiredEntries() bool {
 	return (a.confirmEmailMapLastClean - time.Now().Unix()) > 600
+}
+
+func getIP(c echo.Context) string {
+	// Check X-Forwarded-For header
+	ip := c.Request().Header.Get("X-Forwarded-For")
+	if ip != "" {
+		return strings.Split(ip, ",")[0]
+	}
+
+	// Check X-Real-IP header
+	ip = c.Request().Header.Get("X-Real-IP")
+	if ip != "" {
+		return ip
+	}
+
+	// Get remote address
+	addr := c.Request().RemoteAddr
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr // Return full address if splitting fails
+	}
+	return host
 }
