@@ -33,7 +33,7 @@ const timerTasksId = ref(null)
 
 const isSubmitEnabled = ref(true)
 const isAllFieldsNonEmpty = computed(() => {
-  return !nickname.value || !realname.value || !email.value || !user_message.value
+  return !nickname.value || !realname.value || !validateEmail(email.value)
 })
 
 onMounted(() => {
@@ -157,6 +157,7 @@ const requestRemoval = async (needRecaptcha) => {
   }
   isSubmitEnabled.value = true
   requestButtonEnabled.value = false
+  recaptchaToken.value = ''
 
   try {
     const response = await axios.post('/api/requestrem', requestData, {
@@ -268,7 +269,6 @@ const recaptchaCB = async () => {
 
   console.log('reCAPTCHA token:', recaptchaResponse)
   recaptchaToken.value = recaptchaResponse
-  console.log('recaptchaToken.value:', recaptchaToken.value)
   recaptchaModalVisible.value = false
   requestRemoval(false)
   return
@@ -283,6 +283,17 @@ const recaptchaCB = async () => {
   if (response.status != 200) {
     alert('Verification failed.')
     reloadRecaptcha()
+  }
+}
+
+const validateEmail = (e) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!e) {
+    return false
+  } else if (!emailRegex.test(e)) {
+    return false
+  } else {
+    return true
   }
 }
 

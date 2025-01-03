@@ -1,6 +1,8 @@
 module github.com/hiddn/irc-glines-api
 
-go 1.18
+go 1.23
+
+toolchain go1.23.4
 
 require (
 	github.com/fluffle/goirc v1.3.1

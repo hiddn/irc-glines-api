@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/exp/rand"
@@ -128,6 +129,14 @@ func Api_init(conf Configuration) *echo.Echo {
 	a.ConfirmEmailMap = make(map[string]*confirmemail_struct)
 	//config = conf
 
+	memoryStore := NewInMemoryStore()
+	//e.Use(sessions.Sessions("api", memoryStore))
+	//e.Use(session.Middleware(sessions.NewCookieStore([]byte(a.Config.SecretSessionPassword))))
+	e.Use(session.MiddlewareWithConfig(session.Config{
+		Skipper: sessionSkipper,
+		Store:   memoryStore,
+	}))
+
 	a.TasksData = Tasks_init(86400)
 	e.Use(middleware.BodyLimit("4K"))
 	e.Use(middleware.Logger())
@@ -145,6 +154,10 @@ func Api_init(conf Configuration) *echo.Echo {
 	}))
 	e.Logger.Fatal(e.Start("127.0.0.1:2001"))
 	return e
+}
+
+func sessionSkipper(c echo.Context) bool {
+	return false
 }
 
 func isAPIOpen(c echo.Context) bool {
@@ -206,6 +219,14 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	}
 	ret.UUID = UUID
 
+	sess, err := session.Get("api", c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, "Error getting session")
+	}
+	log.Printf("Debug: sess = %v\n", sess)
+	sess.Values["uuid"] = UUID
+	sess.Save(c.Request(), c.Response())
+
 	if a.Config.Testmode {
 		in.Email = a.Config.TestEmail
 	}
@@ -228,6 +249,9 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		if recaptchaStatusCode, recaptchaMsg := verifyCaptcha(a.Config.RecaptchaSecretKey, in.RecaptchaToken); recaptchaStatusCode != 200 {
 			return c.JSON(recaptchaStatusCode, map[string]string{"message": recaptchaMsg})
 		}
+		sess.Values["FreeRecaptchaBypass"] = 1
+		sess.Save(c.Request(), c.Response())
+		log.Printf("Debug: FreeRecaptchaBypass should be 1. Real value = %v\n", sess.Values["FreeRecaptchaBypass"].(int))
 		err = nil
 		if !IsEmailValid(in.Email) {
 			log.Printf("Invalid email address: %s\n", in.Email)
@@ -254,6 +278,12 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		return c.JSON(http.StatusAccepted, ret)
 	} else {
 		// Email is confirmed. Overwrite the user-supplied email with the one that was confirmed before
+		freeRecaptchaBypass, ok := sess.Values["FreeRecaptchaBypass"].(int)
+		if !ok || freeRecaptchaBypass < 1 {
+			return c.JSON(http.StatusForbidden, map[string]string{"message": "Recaptcha required"})
+		}
+		sess.Values["FreeRecaptchaBypass"] = freeRecaptchaBypass - 1
+		sess.Save(c.Request(), c.Response())
 		in.Email = email
 		emailToAbuseRequired = false
 		list := make([]*RetApiData, 0, len(RetGlines))

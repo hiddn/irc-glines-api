@@ -22,14 +22,15 @@ func ReadConf(filename string) Configuration {
 }
 
 type Configuration struct {
-	Networks           []string
-	ApiKey             string
-	Rules              []rules
-	RecaptchaSecretKey string
-	Smtp               SmtpConfig
-	AbuseEmail         string
-	FromEmail          string
-	TestEmail          string
-	URL                string
-	Testmode           bool
+	Networks              []string
+	ApiKey                string
+	Rules                 []rules
+	RecaptchaSecretKey    string
+	SecretSessionPassword string
+	Smtp                  SmtpConfig
+	AbuseEmail            string
+	FromEmail             string
+	TestEmail             string
+	URL                   string
+	Testmode              bool
 }
