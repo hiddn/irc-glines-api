@@ -59,11 +59,12 @@ func newConfirmEmailStruct(network, ip, email, uuid_str string) *confirmemail_st
 }
 
 type rules struct {
-	RegexReason     string `json:"regexreason"`
-	MustBeSameIP    bool   `json:"mustbesameip"`
-	Autoremove      bool   `json:"autoremove"`
-	NeverEmailAbuse bool   `json:"neveremailabuse"`
-	Message         string `json:"message"`
+	RegexReason       string `json:"regexreason"`
+	MustBeSameIP      bool   `json:"mustbesameip"`
+	Autoremove        bool   `json:"autoremove"`
+	NeverEmailAbuse   bool   `json:"neveremailabuse"`
+	Message           string `json:"message"`
+	AutoremoveMessage string `json:"autoremovemessage"`
 }
 
 type RetApiData struct {
@@ -316,7 +317,9 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 			if autoremove {
 				broadcast_message := fmt.Sprintf("Auto-removed G-line on %s | email: %s | nick: %s | name: %s | Message: %s", gline.Mask, in.Email, in.Nickname, in.RealName, in.UserMessage)
 				if a.RemoveGline(in.Network, gline.Mask, broadcast_message) {
-					retData.Message = "Your G-line was removed successfully"
+					if retData.Message == "" {
+						retData.Message = "Your G-line was removed successfully."
+					}
 				} else {
 					emailToAbuseRequired = true
 					retData.Message = fmt.Sprintf("Error removing G-line. Please contact %s with this message.", a.Config.AbuseEmail)
@@ -386,10 +389,16 @@ func (a *ApiData) EvalGlineRules(gline *RetApiData, remoteAddr string) (autoremo
 				}
 				remoteAddr_net := net.ParseIP(remoteAddr)
 				autoremove = cidr.Contains(remoteAddr_net) && rule.Autoremove
+				if autoremove {
+					message = rule.AutoremoveMessage
+				}
 				emailToAbuseRequired = !rule.NeverEmailAbuse && !autoremove
 				return
 			} else {
 				autoremove = rule.Autoremove
+				if autoremove {
+					message = rule.AutoremoveMessage
+				}
 				emailToAbuseRequired = !rule.NeverEmailAbuse && !autoremove
 				return
 			}

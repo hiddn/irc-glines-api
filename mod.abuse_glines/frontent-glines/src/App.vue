@@ -340,8 +340,7 @@ const validateEmail = (e) => {
             <dd v-html="getExpirationString(gline)"></dd>
           </div>
         </dl>
-        <div v-if="gotGlinesResults" class="gline-results">
-          {{ gline.message }}
+        <div v-if="gotGlinesResults" class="gline-results" v-html="gline.message">
         </div>
       </div>
       <button 
