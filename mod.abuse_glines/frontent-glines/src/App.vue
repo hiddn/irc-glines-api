@@ -631,6 +631,7 @@ body {
   color: red;
 }
 .gline {
+  color: rgba(255, 255, 255, 0.87);
   background-color: rgb(29, 28, 28);
   text-align: left;
   margin: auto;
