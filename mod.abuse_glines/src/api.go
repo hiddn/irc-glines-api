@@ -59,12 +59,13 @@ func newConfirmEmailStruct(network, ip, email, uuid_str string) *confirmemail_st
 }
 
 type rules struct {
-	RegexReason       string `json:"regexreason"`
-	MustBeSameIP      bool   `json:"mustbesameip"`
-	Autoremove        bool   `json:"autoremove"`
-	NeverEmailAbuse   bool   `json:"neveremailabuse"`
-	Message           string `json:"message"`
-	AutoremoveMessage string `json:"autoremovemessage"`
+	RegexReason       string         `json:"regexreason"`
+	RegexCompiled     *regexp.Regexp `json:"-"`
+	MustBeSameIP      bool           `json:"mustbesameip"`
+	Autoremove        bool           `json:"autoremove"`
+	NeverEmailAbuse   bool           `json:"neveremailabuse"`
+	Message           string         `json:"message"`
+	AutoremoveMessage string         `json:"autoremovemessage"`
 }
 
 type RetApiData struct {
@@ -120,6 +121,9 @@ type api_requestrem_ret_struct struct {
 func Api_init(conf Configuration) *echo.Echo {
 	if conf.Testmode {
 		conf.AbuseEmail = conf.TestEmail
+	}
+	for i, _ := range conf.Rules {
+		conf.Rules[i].RegexCompiled = regexp.MustCompile(conf.Rules[i].RegexReason)
 	}
 	e := echo.New()
 	a := &ApiData{
@@ -361,12 +365,7 @@ func (a *ApiData) EvalGlineRules(gline *RetApiData, remoteAddr string) (autoremo
 		return false, false, message
 	}
 	for _, rule := range a.Config.Rules {
-		matched, err := regexp.MatchString(rule.RegexReason, gline.Reason)
-		if err != nil {
-			log.Println("Error matching regex:", err)
-			message = fmt.Sprintf("Error matching regex. Please report to %s", a.Config.AbuseEmail)
-			continue
-		}
+		matched := rule.RegexCompiled.MatchString(gline.Reason)
 		if matched {
 			fmt.Printf("Debug: Matched rule: %v\n", rule)
 			message = rule.Message
