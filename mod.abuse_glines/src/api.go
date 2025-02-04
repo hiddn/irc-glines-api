@@ -319,7 +319,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 				emailToAbuseRequired = true
 			}
 			if autoremove {
-				broadcast_message := fmt.Sprintf("Auto-removed G-line on %s | email: %s | nick: %s | name: %s | Message: %s", gline.Mask, in.Email, in.Nickname, in.RealName, in.UserMessage)
+				broadcast_message := fmt.Sprintf("Auto-removed G-line on %s | email: %s | nick: %s | name: %s | ip: %s | Message: %s", gline.Mask, in.Email, in.Nickname, in.RealName, remoteAddr, in.UserMessage)
 				if a.RemoveGline(in.Network, gline.Mask, broadcast_message) {
 					if retData.Message == "" {
 						retData.Message = "Your G-line was removed successfully."
