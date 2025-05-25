@@ -8,6 +8,7 @@ require (
 	github.com/fluffle/goirc v1.3.1
 	github.com/hiddn/cidranger v1.0.3
 	github.com/labstack/echo/v4 v4.13.3
+	github.com/yl2chen/cidranger v1.0.2
 )
 
 require (
