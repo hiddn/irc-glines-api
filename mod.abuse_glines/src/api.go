@@ -437,14 +437,14 @@ func (a *ApiData) PrepareAbuseEmail(list []*RetApiData, remoteAddr string, in *a
 			</tr>
 			<tr>
 			<td style="font-weight: bold;">Search IP:</td>
-			<td>%s</td>
+			<td><a href="%s?ip=%s">%s</a></td>
 			</tr>
 			<tr>
 			<td style="font-weight: bold;">Message:</td>
 			<td>%s</td>
 			</tr>
 		</table>
-		</div>`, in.Nickname, in.RealName, in.Email, remoteAddr, in.IP, strings.ReplaceAll(in.UserMessage, "\n", "<br>"))
+		</div>`, in.Nickname, in.RealName, in.Email, remoteAddr, a.Config.URL, in.IP, in.IP, strings.ReplaceAll(in.UserMessage, "\n", "<br>"))
 	emailContent += fmt.Sprintf(`
 		<table style="max-width: 500px; margin: 0 0; padding: 0 0;">
 		<tr>
