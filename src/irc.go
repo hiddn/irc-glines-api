@@ -334,12 +334,14 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 		log.Println("DEBUG:", mask, expireTSstr)
 	} else if w[7] == "modifying" {
 		// *** Notice -- gnu.undernet.org modifying global GLINE for *@test: globally activating G-line; changing expiration time to 1734297618; extending record lifetime to 1734297618; and changing reason to "[0] :test2"
+		// *** Notice -- dronescan.undernet.org modifying global GLINE for *@186.189.107.5: globally activating G-line; changing expiration time to 1773188246; and extending record lifetime to 1773188246
 		if w[12] == "globally" {
-			if w[13] == "activating" {
+			switch w[13] {
+			case "activating":
 				*active = true
-			} else if w[13] == "deactivating" {
+			case "deactivating":
 				*active = false
-			} else {
+			default:
 				out := fmt.Sprintf("Parse error: %s", line)
 				s.MsgMainChan(out)
 				retErr = errors.New(out)
@@ -368,10 +370,13 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 		}
 		if len(match_active) == 0 {
 			active = nil
-		} else if len(match_active) == 1 {
-			*active = true
-		} else if len(match_active) == 2 {
-			*active = false
+		} else {
+			// match_active[1] will be "de" when deactivating, empty when activating
+			if match_active[1] == "de" {
+				*active = false
+			} else {
+				*active = true
+			}
 		}
 
 		/*

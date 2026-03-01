@@ -98,8 +98,8 @@ func TestHandleGNOTICE(t *testing.T) {
 			expectedErr:   false,
 		},
 		{
-			snotice:       `:hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org modifying global GLINE for *@1.1.1.7/32: changing expiration time to 1669689583; extending record lifetime to 1669689583; and changing reason to "Unknown G-Line"`,
-			ip:            "1.1.1.7/32",
+			snotice:       `:hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org modifying global GLINE for *@1.1.1.247/32: changing expiration time to 1669689583; extending record lifetime to 1669689583; and changing reason to "Unknown G-Line"`,
+			ip:            "1.1.1.247/32",
 			expireTS:      1669689583,
 			isDeactivated: false,
 			expectedErr:   false,
@@ -130,6 +130,13 @@ func TestHandleGNOTICE(t *testing.T) {
 			ip:            "1.1.1.8",
 			expireTS:      1734297618,
 			isDeactivated: true,
+			expectedErr:   false,
+		},
+		{
+			snotice:       `:hidden.undernet.org NOTICE * :*** Notice -- dronescan.undernet.org modifying global GLINE for *@1.1.1.9: globally activating G-line; changing expiration time to 1773188246; and extending record lifetime to 1773188246`,
+			ip:            "1.1.1.9",
+			expireTS:      1773188246,
+			isDeactivated: false,
 			expectedErr:   false,
 		},
 	}
@@ -167,7 +174,7 @@ func TestHandleGNOTICE(t *testing.T) {
 			t.Errorf(`res.expireTS(%s) = %v. Want %v`, c.ip, res.expireTS, c.expireTS)
 		}
 		if res.active != !c.isDeactivated {
-			t.Errorf(`res.active(%s) = %t. Want %t`, c.ip, res.active, c.isDeactivated)
+			t.Errorf(`res.active(%s) = %t. Want %t`, c.ip, res.active, !c.isDeactivated)
 		}
 	}
 }

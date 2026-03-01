@@ -171,11 +171,19 @@ func (s *serverData) AddOrUpdateGline(ipNet net.IPNet, user, mask string, expire
 		}
 	}
 	// Add new gline
-	if active == nil || reason == "" {
-		log.Fatalf("(Insert gline bug) active or reason value is nil for this gline: %s\n", mask)
-	}
+	/*
+		if active == nil || reason == "" {
+			log.Fatalf("(Insert gline bug) active or reason value is nil for this gline: %s\n", mask)
+		}
+	*/
 	//s.AddNewGline(newGlineData(*ipnet, user, mask, expireTS, lastModTS, reason, *active))
-	newGline := newGlineData(ipNet, user, mask, expireTS, lastModTS, reason, *active)
+	// If active is nil (modify message without explicit active state) assume the gline
+	// should be active when creating a new entry.
+	newActive := true
+	if active != nil {
+		newActive = *active
+	}
+	newGline := newGlineData(ipNet, user, mask, expireTS, lastModTS, reason, newActive)
 	gList := make([]*glineData, 0, 5)
 	gList = append(gList, newGline)
 	glineDataList := newGlinesData(ipNet, gList)
