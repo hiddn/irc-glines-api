@@ -198,6 +198,10 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, "Network not found")
 	}
 
+	if net.ParseIP(in.IP) == nil {
+		return c.JSON(http.StatusBadRequest, "Invalid IP address")
+	}
+
 	RetGlines, err := a.lookupGlineAPI(in.IP, in.Network)
 	if err != nil {
 		fmt.Println("Error:", err)
