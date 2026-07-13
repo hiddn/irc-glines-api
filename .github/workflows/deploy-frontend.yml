@@ -18,7 +18,7 @@ jobs:
   deploy:
     runs-on: [self-hosted, irc-glines-api-prod]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build
         working-directory: mod.abuse_glines/frontent-glines
