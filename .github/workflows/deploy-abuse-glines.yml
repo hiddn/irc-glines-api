@@ -1,0 +1,45 @@
+name: Deploy abuse_glines
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mod.abuse_glines/src/**"
+      - "mod.abuse_glines/main.go"
+      - "mod.abuse_glines/go.mod"
+      - "mod.abuse_glines/go.sum"
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-abuse-glines
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, irc-glines-api-prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        working-directory: mod.abuse_glines
+        run: go build -o abuse_glines .
+
+      - name: Deploy binary
+        env:
+          DEPLOY_DIR: /home/ircbl/go/irc-glines-api/mod.abuse_glines/bin
+        run: |
+          set -euo pipefail
+          cp mod.abuse_glines/abuse_glines "$DEPLOY_DIR/abuse_glines.new"
+          chmod 755 "$DEPLOY_DIR/abuse_glines.new"
+          mv "$DEPLOY_DIR/abuse_glines.new" "$DEPLOY_DIR/abuse_glines"
+
+      - name: Restart service
+        run: sudo systemctl restart abuse-glines.service
+
+      - name: Smoke check
+        run: |
+          sleep 2
+          systemctl is-active --quiet abuse-glines.service

@@ -1,0 +1,32 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mod.abuse_glines/frontent-glines/**"
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, irc-glines-api-prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        working-directory: mod.abuse_glines/frontent-glines
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy static assets
+        env:
+          DEPLOY_DIR: /home/ircbl/go/irc-glines-api/mod.abuse_glines/frontent-glines/dist
+        run: rsync -a --delete mod.abuse_glines/frontent-glines/dist/ "$DEPLOY_DIR/"

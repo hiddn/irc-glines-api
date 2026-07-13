@@ -1,0 +1,45 @@
+name: Deploy irc-glines-api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "cidr/**"
+      - "main.go"
+      - "go.mod"
+      - "go.sum"
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-irc-glines-api
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, irc-glines-api-prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: go build -o irc-glines-api .
+
+      - name: Deploy binary
+        env:
+          DEPLOY_DIR: /home/ircbl/go/irc-glines-api/bin
+        run: |
+          set -euo pipefail
+          cp irc-glines-api "$DEPLOY_DIR/irc-glines-api.new"
+          chmod 755 "$DEPLOY_DIR/irc-glines-api.new"
+          mv "$DEPLOY_DIR/irc-glines-api.new" "$DEPLOY_DIR/irc-glines-api"
+
+      - name: Restart service
+        run: sudo systemctl restart irc-glines-api.service
+
+      - name: Smoke check
+        run: |
+          sleep 2
+          systemctl is-active --quiet irc-glines-api.service
