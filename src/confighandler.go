@@ -37,4 +37,5 @@ type Configuration struct {
 	AuthSuccessfullMsgs        []string
 	OperServRemglineCmd        string
 	ForbidCIDRLookupsViaAPI    bool
+	Debug                      bool
 }

@@ -27,5 +27,6 @@
     ],
     "abuseemail": "abuse@undernet.org",
     "testmode": false,
-    "testemail": "your_email@address.here"
+    "testemail": "your_email@address.here",
+    "debug": false
 }

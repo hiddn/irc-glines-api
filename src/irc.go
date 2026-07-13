@@ -19,6 +19,23 @@ type serversType map[*irc.Conn]*serverData
 
 var servers = make(serversType)
 
+// Debug enables verbose internal-state logging. Set from Configuration.Debug at startup.
+var Debug bool
+
+func debugLog(v ...interface{}) {
+	if !Debug {
+		return
+	}
+	log.Println(append([]interface{}{"[DEBUG]"}, v...)...)
+}
+
+func debugLogf(format string, v ...interface{}) {
+	if !Debug {
+		return
+	}
+	log.Printf("[DEBUG] "+format, v...)
+}
+
 type serverData struct {
 	Conn                 *irc.Conn
 	Config               *Configuration
@@ -169,7 +186,7 @@ func (s *serverData) TimerPing() {
 		if s.Conn.Connected() {
 			s.Conn.Raw("PING :me")
 		} else {
-			fmt.Println("Not sending PING (Disconnected)")
+			debugLog("Not sending PING (Disconnected)")
 			//return
 		}
 		time.Sleep(60 * time.Second)
@@ -250,7 +267,7 @@ func handleGline280(conn *irc.Conn, line *irc.Line) {
 }
 
 func handleJOIN(conn *irc.Conn, line *irc.Line) {
-	log.Println(line.Raw)
+	debugLog(line.Raw)
 	s := servers.GetServerInfos(conn)
 	w := strings.Split(line.Raw, " ")
 	nick := strings.Split(w[0][1:], "!")[0]
@@ -262,7 +279,7 @@ func handleJOIN(conn *irc.Conn, line *irc.Line) {
 }
 
 func handleQUIT(conn *irc.Conn, line *irc.Line) {
-	log.Println(line.Raw)
+	debugLog(line.Raw)
 	s := servers.GetServerInfos(conn)
 	w := strings.Split(line.Raw, " ")
 	nick := strings.Split(w[0][1:], "!")[0]
@@ -273,7 +290,7 @@ func handleQUIT(conn *irc.Conn, line *irc.Line) {
 }
 
 func handleNOTICE(conn *irc.Conn, line *irc.Line) {
-	log.Println(line.Raw)
+	debugLog(line.Raw)
 	s := servers.GetServerInfos(conn)
 	w := strings.Split(line.Raw, " ")
 	handleGNOTICE(line.Raw, w, s)
@@ -331,7 +348,7 @@ func handleGNOTICE(line string, w []string, s *serverData) error {
 			s.MsgMainChan(out)
 			retErr = errors.New(out)
 		}
-		log.Println("DEBUG:", mask, expireTSstr)
+		debugLog(mask, expireTSstr)
 	} else if w[7] == "modifying" {
 		// *** Notice -- gnu.undernet.org modifying global GLINE for *@test: globally activating G-line; changing expiration time to 1734297618; extending record lifetime to 1734297618; and changing reason to "[0] :test2"
 		// *** Notice -- dronescan.undernet.org modifying global GLINE for *@186.189.107.5: globally activating G-line; changing expiration time to 1773188246; and extending record lifetime to 1773188246

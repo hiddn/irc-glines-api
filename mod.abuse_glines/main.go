@@ -7,5 +7,6 @@ import (
 func main() {
 	var configFile = "config.json"
 	var config abuse_glines.Configuration = abuse_glines.ReadConf(configFile)
+	abuse_glines.Debug = config.Debug
 	abuse_glines.Api_init(config)
 }

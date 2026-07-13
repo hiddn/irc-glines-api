@@ -33,4 +33,5 @@ type Configuration struct {
 	TestEmail             string
 	URL                   string
 	Testmode              bool
+	Debug                 bool
 }

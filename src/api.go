@@ -1,7 +1,6 @@
 package ircglineapi
 
 import (
-	"log"
 	"net/http"
 	"strings"
 
@@ -155,7 +154,7 @@ func (a *ApiData) glineApi(c echo.Context, in api_struct, err error) error {
 	if a.Config.ForbidCIDRLookupsViaAPI {
 		in.Ip = strings.Split(in.Ip, "/")[0]
 	}
-	log.Println("ip =", in.Ip, ", net = ", in.Network)
+	debugLog("ip =", in.Ip, ", net = ", in.Network)
 	s := servers.GetServerInfosByNetwork(in.Network)
 	if s == nil {
 		return c.JSON(http.StatusNotFound, "Network not found")

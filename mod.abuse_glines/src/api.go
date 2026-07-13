@@ -20,6 +20,23 @@ import (
 	"golang.org/x/exp/rand"
 )
 
+// Debug enables verbose internal-state logging. Set from Configuration.Debug at startup.
+var Debug bool
+
+func debugLog(v ...interface{}) {
+	if !Debug {
+		return
+	}
+	log.Println(append([]interface{}{"[DEBUG]"}, v...)...)
+}
+
+func debugLogf(format string, v ...interface{}) {
+	if !Debug {
+		return
+	}
+	log.Printf("[DEBUG] "+format, v...)
+}
+
 type ApiData struct {
 	Config                   Configuration
 	EchoInstance             *echo.Echo
@@ -193,7 +210,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "bad request")
 	}
 	remoteAddr := getIP(c)
-	log.Println("ip =", in.IP, ", net =", in.Network)
+	debugLog("ip =", in.IP, ", net =", in.Network)
 	if !slices.Contains(a.Config.Networks, strings.ToLower(in.Network)) {
 		return c.JSON(http.StatusNotFound, "Network not found")
 	}
@@ -223,7 +240,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	var UUID string
 	if in.UUID == "" {
 		UUID = uuid.NewString()
-		log.Printf("Generating new UUID for email confirmation: %s\n", UUID)
+		debugLogf("Generating new UUID for email confirmation: %s\n", UUID)
 	} else {
 		UUID = in.UUID
 	}
@@ -233,7 +250,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, "Error getting session")
 	}
-	log.Printf("Debug: sess = %v\n", sess)
+	debugLogf("sess = %v\n", sess)
 	sess.Values["uuid"] = UUID
 	sess.Save(c.Request(), c.Response())
 
@@ -244,10 +261,10 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 	email := ""
 	for _, task := range a.TasksData.GetAllTasksByUUID(UUID) {
 		if task.TaskType == "confirmemail" {
-			fmt.Printf("Debug: email = %v\nDebug: task.Data = %v\n", in.Email, task.Data)
+			debugLogf("email = %v, task.Data = %v\n", in.Email, task.Data)
 			if task.Data.(*confirmemail_struct).EmailAddr == in.Email {
 				if !task.IsExpired() && task.Progress == 100 {
-					fmt.Printf("Debug: Confirmed email found: %s\n", in.Email)
+					debugLogf("Confirmed email found: %s\n", in.Email)
 					emailConfirmed = true
 					email = task.DataVisibleToUser
 					break
@@ -261,7 +278,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 		}
 		sess.Values["FreeRecaptchaBypass"] = 1
 		sess.Save(c.Request(), c.Response())
-		log.Printf("Debug: FreeRecaptchaBypass should be 1. Real value = %v\n", sess.Values["FreeRecaptchaBypass"].(int))
+		debugLogf("FreeRecaptchaBypass should be 1. Real value = %v\n", sess.Values["FreeRecaptchaBypass"].(int))
 		err = nil
 		if !IsEmailValid(in.Email) {
 			log.Printf("Invalid email address: %s\n", in.Email)
@@ -339,7 +356,7 @@ func (a *ApiData) requestRemGlineApi(c echo.Context) error {
 			list = append(list, retData)
 		}
 		if emailToAbuseRequired {
-			fmt.Printf("Debug: Emailing abuse for %s\n", in.IP)
+			debugLogf("Emailing abuse for %s\n", in.IP)
 			emailContent := a.PrepareAbuseEmail(list, remoteAddr, &in)
 			err = SendEmail(a.Config.AbuseEmail, a.Config.FromEmail, in.Email, "G-line removal request", emailContent, a.Config.Smtp, true)
 			if err != nil {
@@ -638,7 +655,7 @@ func (a *ApiData) RemoveGline(network, glineMask, message string) bool {
 		return false
 	}
 
-	fmt.Printf("Debug: %s\n", body)
+	debugLogf("%s\n", body)
 	return true
 }
 
@@ -693,7 +710,7 @@ func (a *ApiData) lookupGlineAPI(ip, network string) ([]RetGlineData, error) {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	fmt.Printf("Debug: %s\n", body)
+	debugLogf("%s\n", body)
 	// Unmarshal JSON response into RetGlineData
 	var retGlines []RetGlineData
 	err = json.Unmarshal(body, &retGlines)

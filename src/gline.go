@@ -135,13 +135,13 @@ func (s *serverData) AddOrUpdateGline(ipNet net.IPNet, user, mask string, expire
 		ip = AddCidrToIP(ip)
 		_, tmp_ipnet, err2 := net.ParseCIDR(ip)
 		if err2 != nil {
-			log.Printf("Debug: net.ParseCIDR(%s) failed. Line: %s\n", ip, line)
+			debugLogf("net.ParseCIDR(%s) failed. Line: %s\n", ip, line)
 			return false
 		}
 		entries, err = s.Cranger.CoveringOrCoveredNetworks(*tmp_ipnet)
 	}
 	if err != nil {
-		log.Fatalf("Debug: serverData.UpdateGline(): ip=%s, error = %s\n", ip, err.Error())
+		log.Fatalf("serverData.UpdateGline(): ip=%s, error = %s\n", ip, err.Error())
 	}
 
 	//log.Printf("Entries for %s:\n", ip)
@@ -156,7 +156,7 @@ func (s *serverData) AddOrUpdateGline(ipNet net.IPNet, user, mask string, expire
 			for _, entry := range gd.Glines {
 				emask := entry.Mask()
 				if strings.EqualFold(mask, emask) {
-					log.Printf("DEBUG: serverData.UpdateGline(): Update gline mask=%s\n", mask)
+					debugLogf("serverData.UpdateGline(): Update gline mask=%s\n", mask)
 					entry.Update(active, expireTS, reason)
 					return true
 				}
@@ -165,7 +165,7 @@ func (s *serverData) AddOrUpdateGline(ipNet net.IPNet, user, mask string, expire
 				log.Printf("active is nil for a new gline. That is odd. Gline: %s\n", mask)
 			}
 			// Add new gline, but another gline exists for that IP, but with a differnet user@.
-			log.Printf("DEBUG: serverData.UpdateGline(): Add new gline for mask=%s, but at least one other gline exists with another user for that IP.\n", mask)
+			debugLogf("serverData.UpdateGline(): Add new gline for mask=%s, but at least one other gline exists with another user for that IP.\n", mask)
 			gd.Glines = append(gd.Glines, newGlineData(gd.IpNet, user, mask, expireTS, lastModTS, reason, true))
 			return true
 		}
@@ -206,13 +206,13 @@ func (s *serverData) CheckGline(ip string, exactCidr bool) ([]*glineData, []*gli
 		ip = AddCidrToIP(ip)
 		_, ipnet, err2 = net.ParseCIDR(ip)
 		if err2 != nil {
-			log.Printf("Debug: net.ParseCIDR(%s) failed\n", ip)
+			debugLogf("net.ParseCIDR(%s) failed\n", ip)
 			return nil, nil, err2
 		}
 		entries, err = s.Cranger.CoveringOrCoveredNetworks(*ipnet)
 	}
 	if err != nil {
-		log.Printf("Debug: serverData.CheckGline(): ip=%s, error = %s\n", ip, err.Error())
+		debugLogf("serverData.CheckGline(): ip=%s, error = %s\n", ip, err.Error())
 	}
 	activeGlines := make([]*glineData, 0, len(entries))
 	inactiveGlines := make([]*glineData, 0, len(entries))

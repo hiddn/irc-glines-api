@@ -9,6 +9,7 @@ func main() {
 	var config ircgline.Configuration
 
 	config = ircgline.ReadConf(configFile)
+	ircgline.Debug = config.Debug
 	s := ircgline.Irc_init(&config)
 	s.Connect()
 
