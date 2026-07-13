@@ -40,8 +40,10 @@ sed -E 's#^([^#].*go/irc-glines-api/start2?\.sh.*)#\#\1#' /tmp/ircbl-crontab.bak
 echo "   backed up previous crontab to /tmp/ircbl-crontab.bak"
 
 echo "== 2/7: stopping cron-managed processes (systemd will take over) =="
-pkill -u "$SERVICE_USER" -f "$REPO_DIR/irc-glines-api" 2>/dev/null || true
-pkill -u "$SERVICE_USER" -f "$ABUSE_DIR/abuse_glines" 2>/dev/null || true
+# start.sh/start2.sh invoke the binaries by relative path (./irc-glines-api),
+# so match on the basename, not the absolute path, or this won't find them.
+pkill -u "$SERVICE_USER" -f '(^|/)irc-glines-api$' 2>/dev/null || true
+pkill -u "$SERVICE_USER" -f '(^|/)abuse_glines$' 2>/dev/null || true
 sleep 1
 
 echo "== 3/7: creating gha-runner-owned deploy directories =="
