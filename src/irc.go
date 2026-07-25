@@ -43,6 +43,7 @@ type serverData struct {
 	NetworkName          string
 	LastGlineCmdIssuedTS int64
 	Cranger              cidranger.Ranger
+	GlinesByID           map[string]*glineData
 	LoggedInToOperServ   bool
 	LastLoginAttempt     int64
 	Quit                 chan bool
@@ -57,6 +58,7 @@ func (s serversType) NewServerInfos(conn *irc.Conn, config *Configuration) *serv
 		Config:               config,
 		LastGlineCmdIssuedTS: 0,
 		Cranger:              cidranger.NewPCTrieRanger(),
+		GlinesByID:           make(map[string]*glineData),
 		LoggedInToOperServ:   false,
 		LastLoginAttempt:     0,
 	}
@@ -137,17 +139,18 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 			s.Conn.Raw(str)
 			return
 		}
-		if glines, exp_glines, err := s.CheckGline(w[4], false); err == nil {
-			str_slices := make([]string, 0, len(glines))
-			for _, entry := range glines {
-				mask := entry.Mask()
-				tmpStr := fmt.Sprintf("%s (expires in %s): %s", mask, time.Duration(entry.SecondsUntilExpiration())*time.Second, entry.reason)
-				str_slices = append(str_slices, tmpStr)
-				s.Conn.Raw(tmpStr)
-			}
-			for _, entry := range exp_glines {
-				mask := entry.Mask()
-				tmpStr := fmt.Sprintf("EXPIRED: %s (expired <%d hours ago, lastmod %d hours ago): %s", mask, -entry.HoursUntilExpiration()+1, entry.HoursSinceLastMod(), entry.reason)
+		var entries []*glineData
+		var err error
+		if IsGlineIDFormat(w[4]) {
+			entries, err = s.CheckGlineByID(w[4])
+		} else {
+			active, inactive, cgErr := s.CheckGline(w[4], false)
+			entries, err = append(active, inactive...), cgErr
+		}
+		if err == nil {
+			str_slices := make([]string, 0, len(entries))
+			for _, entry := range entries {
+				tmpStr := formatGlineLine(entry)
 				str_slices = append(str_slices, tmpStr)
 				s.Conn.Raw(tmpStr)
 			}
@@ -164,6 +167,14 @@ func handlePRIVMSG(conn *irc.Conn, tline *irc.Line) {
 			}
 		}
 	}
+}
+
+func formatGlineLine(entry *glineData) string {
+	mask := entry.Mask()
+	if entry.IsGlineActive() {
+		return fmt.Sprintf("%s (expires in %s): %s", mask, time.Duration(entry.SecondsUntilExpiration())*time.Second, entry.reason)
+	}
+	return fmt.Sprintf("EXPIRED: %s (expired <%d hours ago, lastmod %d hours ago): %s", mask, -entry.HoursUntilExpiration()+1, entry.HoursSinceLastMod(), entry.reason)
 }
 
 func (s *serverData) Connect() {

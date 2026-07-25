@@ -178,3 +178,91 @@ func TestHandleGNOTICE(t *testing.T) {
 		}
 	}
 }
+
+func TestHandleGNOTICEGlineID(t *testing.T) {
+	config := &Configuration{
+		Network:     "undernet",
+		Server:      "hidden.undernet.org",
+		Channels:    []string{"#burp"},
+		Nick:        "GL2",
+		Ident:       "stupid",
+		Name:        "No name",
+		ConnectCmds: []string{},
+	}
+	irccfg := irc.NewConfig(config.Nick)
+	irccfg.SSL = false
+	irccfg.Server = config.Server
+	irccfg.Me.Ident = config.Ident
+	irccfg.Me.Name = config.Name
+	irccfg.NewNick = func(n string) string { return n + "^" }
+	ircClient := irc.Client(irccfg)
+
+	s := servers.NewServerInfos(ircClient, config)
+	s.ServerName = config.Server
+
+	// 1. New gline arrives with an ID suffix in the reason.
+	addNotice := `:hidden.undernet.org NOTICE * :*** Notice -- dronescan.undernet.org adding global GLINE for *@152.231.15.130, expiring at 1785092945: AUTO [1] You were identified as a drone. Visit https://glines.undernet.org?ip=152.231.15.130 for removal. (P327) - ID: D-A-1`
+	if err := handleGNOTICE(addNotice, strings.Split(addNotice, " "), s); err != nil {
+		t.Fatalf("handleGNOTICE() error: %s", err.Error())
+	}
+
+	res, err := s.CheckGlineByID("D-A-1")
+	if err != nil {
+		t.Fatalf("CheckGlineByID() error: %s", err.Error())
+	}
+	if len(res) != 1 {
+		t.Fatalf("CheckGlineByID(D-A-1) returned %d entries, want exactly 1", len(res))
+	}
+	if res[0].ExpireTS() != 1785092945 {
+		t.Errorf("res[0].ExpireTS() = %d, want 1785092945", res[0].ExpireTS())
+	}
+	if !strings.HasSuffix(res[0].reason, "- ID: D-A-1") {
+		t.Errorf("reason suffix was stripped or altered: %q", res[0].reason)
+	}
+
+	// 2. A "modifying" notice reassigns the ID and changes the expiration.
+	modNotice := `:hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org modifying global GLINE for *@152.231.15.130: globally activating G-line; changing expiration time to 1800000000; and changing reason to "AUTO [1] visit removal page (P327) - ID: D-B-1"`
+	if err := handleGNOTICE(modNotice, strings.Split(modNotice, " "), s); err != nil {
+		t.Fatalf("handleGNOTICE() (modify) error: %s", err.Error())
+	}
+
+	// Looking up the OLD ID must now return the frozen historical record
+	// first, plus the current live record for that same IP.
+	oldRes, err := s.CheckGlineByID("D-A-1")
+	if err != nil {
+		t.Fatalf("CheckGlineByID(D-A-1) after modify error: %s", err.Error())
+	}
+	if len(oldRes) != 2 {
+		t.Fatalf("CheckGlineByID(D-A-1) after modify returned %d entries, want exactly 2", len(oldRes))
+	}
+	if oldRes[0].ID() != "D-A-1" || oldRes[0].ExpireTS() != 1785092945 {
+		t.Errorf("oldRes[0] = %+v, want the frozen D-A-1 snapshot with the original expiration", oldRes[0])
+	}
+	if oldRes[1].ID() != "D-B-1" || oldRes[1].ExpireTS() != 1800000000 {
+		t.Errorf("oldRes[1] = %+v, want the current D-B-1 record with the new expiration", oldRes[1])
+	}
+
+	// Looking up the NEW ID must return exactly the live record, no
+	// self-duplicate.
+	newRes, err := s.CheckGlineByID("D-B-1")
+	if err != nil {
+		t.Fatalf("CheckGlineByID(D-B-1) error: %s", err.Error())
+	}
+	if len(newRes) != 1 {
+		t.Fatalf("CheckGlineByID(D-B-1) returned %d entries, want exactly 1", len(newRes))
+	}
+
+	// 3. A further "modifying" notice with no ID in its reason must not
+	// clear the current ID.
+	modNotice2 := `:hidden.undernet.org NOTICE * :*** Notice -- gnu.undernet.org modifying global GLINE for *@152.231.15.130: changing expiration time to 1810000000; extending record lifetime to 1810000000`
+	if err := handleGNOTICE(modNotice2, strings.Split(modNotice2, " "), s); err != nil {
+		t.Fatalf("handleGNOTICE() (modify 2) error: %s", err.Error())
+	}
+	newRes2, err := s.CheckGlineByID("D-B-1")
+	if err != nil {
+		t.Fatalf("CheckGlineByID(D-B-1) after modify 2 error: %s", err.Error())
+	}
+	if len(newRes2) != 1 || newRes2[0].ExpireTS() != 1810000000 {
+		t.Fatalf("CheckGlineByID(D-B-1) after modify 2 = %+v, want 1 entry with expireTS 1810000000", newRes2)
+	}
+}

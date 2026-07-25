@@ -4,17 +4,45 @@ import (
 	"log"
 	"math"
 	"net"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/hiddn/cidranger"
 )
 
+// Matches the literal " - ID: <token>" suffix ircd appends to some gline
+// reasons, e.g. "... (P327) - ID: D1785006545-2001". Captures the token.
+var reGlineID = regexp.MustCompile(`\s-\s+ID:\s+(\S+)\s*$`)
+
+// parseGlineID extracts the trailing " - ID: <id>" token from a reason
+// string, or returns "" if the reason doesn't have that suffix. It never
+// modifies the input string.
+func parseGlineID(reason string) string {
+	m := reGlineID.FindStringSubmatch(reason)
+	if len(m) < 2 {
+		return ""
+	}
+	return m[1]
+}
+
+// Matches gline IDs like "D1785006545-2001": letters, digits, hyphen,
+// digits. This never collides with a valid IPv4/IPv6/CIDR string.
+var reGlineIDFormat = regexp.MustCompile(`^[A-Za-z]+\d+-\d+$`)
+
+// IsGlineIDFormat reports whether s looks like a gline ID rather than an
+// IP/CIDR.
+func IsGlineIDFormat(s string) bool {
+	return reGlineIDFormat.MatchString(s)
+}
+
 type glineData struct {
 	ipNet     net.IPNet
 	user      string
 	mask      string
 	reason    string
+	id        string
 	expireTS  int64
 	lastModTS int64
 	active    bool
@@ -56,6 +84,18 @@ func (g *glineData) Mask() string {
 	return g.mask
 }
 
+func (g *glineData) ID() string {
+	return g.id
+}
+
+// Clone returns an independent copy of g, frozen at its current state. A
+// shallow copy is safe: Update never mutates ipNet/user/mask after
+// construction, only active/reason/expireTS/lastModTS/id.
+func (g *glineData) Clone() *glineData {
+	clone := *g
+	return &clone
+}
+
 func (g *glineData) ExpireTS() int64 {
 	return g.expireTS
 }
@@ -92,6 +132,9 @@ func (g *glineData) Update(active *bool, expireTS int64, reason string) {
 	}
 	if reason != "" {
 		g.reason = reason
+		if newID := parseGlineID(reason); newID != "" {
+			g.id = newID
+		}
 	}
 	if expireTS != 0 {
 		g.expireTS = expireTS
@@ -117,6 +160,7 @@ func newGlineData(ipNet net.IPNet, user, mask string, expireTS, lastModTS int64,
 		expireTS:  expireTS,
 		active:    active,
 		reason:    reason,
+		id:        parseGlineID(reason),
 	}
 }
 
@@ -157,7 +201,17 @@ func (s *serverData) AddOrUpdateGline(ipNet net.IPNet, user, mask string, expire
 				emask := entry.Mask()
 				if strings.EqualFold(mask, emask) {
 					debugLogf("serverData.UpdateGline(): Update gline mask=%s\n", mask)
+					oldID := entry.ID()
+					newID := parseGlineID(reason)
+					if oldID != "" && newID != "" && newID != oldID {
+						// The ID is being reassigned: freeze the pre-update
+						// state under its old ID so it stays viewable.
+						s.GlinesByID[oldID] = entry.Clone()
+					}
 					entry.Update(active, expireTS, reason)
+					if id := entry.ID(); id != "" {
+						s.GlinesByID[id] = entry
+					}
 					return true
 				}
 			}
@@ -166,7 +220,11 @@ func (s *serverData) AddOrUpdateGline(ipNet net.IPNet, user, mask string, expire
 			}
 			// Add new gline, but another gline exists for that IP, but with a differnet user@.
 			debugLogf("serverData.UpdateGline(): Add new gline for mask=%s, but at least one other gline exists with another user for that IP.\n", mask)
-			gd.Glines = append(gd.Glines, newGlineData(gd.IpNet, user, mask, expireTS, lastModTS, reason, true))
+			newGline := newGlineData(gd.IpNet, user, mask, expireTS, lastModTS, reason, true)
+			gd.Glines = append(gd.Glines, newGline)
+			if id := newGline.ID(); id != "" {
+				s.GlinesByID[id] = newGline
+			}
 			return true
 		}
 	}
@@ -184,6 +242,9 @@ func (s *serverData) AddOrUpdateGline(ipNet net.IPNet, user, mask string, expire
 		newActive = *active
 	}
 	newGline := newGlineData(ipNet, user, mask, expireTS, lastModTS, reason, newActive)
+	if id := newGline.ID(); id != "" {
+		s.GlinesByID[id] = newGline
+	}
 	gList := make([]*glineData, 0, 5)
 	gList = append(gList, newGline)
 	glineDataList := newGlinesData(ipNet, gList)
@@ -237,4 +298,30 @@ func (s *serverData) CheckGline(ip string, exactCidr bool) ([]*glineData, []*gli
 		}
 	}
 	return activeGlines, inactiveGlines, err
+}
+
+// CheckGlineByID looks up a gline by its ircd-assigned ID (e.g.
+// "D1785006545-2001"). The returned list is ordered with the ID-matched
+// record first, followed by every gline currently matching that same
+// IP/CIDR (active or inactive) sorted by expiration timestamp descending.
+// If the matched record has since been superseded by a newer ID for the
+// same mask, it is a frozen historical snapshot that no longer appears in
+// the trie, so it can never duplicate an entry in the "related" list.
+func (s *serverData) CheckGlineByID(id string) ([]*glineData, error) {
+	g, ok := s.GlinesByID[id]
+	if !ok {
+		return nil, nil
+	}
+	active, inactive, err := s.CheckGline(g.ipNet.IP.String(), false)
+	if err != nil {
+		return []*glineData{g}, nil
+	}
+	related := make([]*glineData, 0, len(active)+len(inactive))
+	for _, e := range append(active, inactive...) {
+		if e != g {
+			related = append(related, e)
+		}
+	}
+	sort.Slice(related, func(i, j int) bool { return related[i].expireTS > related[j].expireTS })
+	return append([]*glineData{g}, related...), nil
 }

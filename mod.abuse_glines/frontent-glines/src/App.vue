@@ -6,8 +6,13 @@ import './style.css'
 const config = {
   network: 'Undernet',
   glinelookup_url: '/api2/glinelookup/:network/:ip',
+  glineidlookup_url: '/api2/glineidlookup/:network/:id',
   recaptcha_site_key: '6LfHTqwqAAAAANeeZSuospbpzNBPbfQhMnAo2rwu'
 }
+
+// Matches gline IDs like "D1785006545-2001": letters, digits, hyphen,
+// digits. This never collides with a valid IPv4/IPv6/CIDR string.
+const GLINE_ID_REGEX = /^[A-Za-z]+\d+-\d+$/
 
 const myip = ref('')
 const ip = ref('')
@@ -40,7 +45,7 @@ onMounted(() => {
   console.debug("onMounted")
   const input_ip = document.getElementById('input_ip');
   const params = new URLSearchParams(window.location.search);
-  paramIP.value = params.get('ip')
+  paramIP.value = params.get('ip') ?? params.get('id')
   if (paramIP.value != null) {
     ip.value = paramIP.value
     input_ip.value = paramIP.value;
@@ -111,10 +116,13 @@ const lookupGline = async () => {
   showRequestForm.value = false
   gotGlinesResults.value = false
   requestButtonEnabled.value = true
-  const url = config.glinelookup_url
+
+  const query = ip.value.trim()
+  const isGlineID = GLINE_ID_REGEX.test(query)
+  const url = (isGlineID ? config.glineidlookup_url : config.glinelookup_url)
     .replace(':network', config.network.toLowerCase())
-    .replace(':ip', ip.value)
-    
+    .replace(isGlineID ? ':id' : ':ip', query)
+
   try {
     const response = await axios.get(url, {
       headers: {
@@ -125,12 +133,12 @@ const lookupGline = async () => {
     glines.value = response.data
 
     if (Array.isArray(response.data) && response.data.length === 0) {
-      errormsg.value = 'No G-lines found'
+      errormsg.value = isGlineID ? 'No G-line found for that ID' : 'No G-lines found'
     }
 
   } catch (error) {
     if (error.response && error.response.status === 400) {
-      errormsg.value = 'Invalid IP address'
+      errormsg.value = isGlineID ? 'Invalid G-line ID' : 'Invalid IP address'
       return
     }
     errormsg.value = 'API call error ' + error.response.status + ': ' + error.response.data
@@ -303,7 +311,7 @@ const validateEmail = (e) => {
     <h1>G-line Lookup</h1>
     <p>Your IP: {{ myip }}</p>
     <div class="input-container">
-      <label for="input_ip" class="label">IP address:</label>
+      <label for="input_ip" class="label">IP address or G-line ID:</label>
       <input 
         id="input_ip"
         type="text"
@@ -325,7 +333,7 @@ const validateEmail = (e) => {
     
     <div v-if="glines?.length > 0" class="table-container">
       <span class="label-title">G-lines:</span>
-      <div v-for="gline in glines" :key="gline.mask" class="gline">
+      <div v-for="(gline, index) in glines" :key="index" class="gline">
         <div>
           <span class="gline-info-title"></span>
           <span class="gline-mask">{{ gline.mask }}</span>

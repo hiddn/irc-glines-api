@@ -20,12 +20,13 @@ type RetGlineData struct {
 	LastModTS        int64  `json:"lastmodts"`
 	HoursUntilExpire int64  `json:"hoursuntilexpire"`
 	Reason           string `json:"reason"`
+	ID               string `json:"id"`
 }
 type RetGlineDatas struct {
 	RetGlineData []RetGlineData `json:"glines"`
 }
 
-func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire int64, active bool) *RetGlineData {
+func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire int64, active bool, id string) *RetGlineData {
 	return &RetGlineData{
 		Active:           active,
 		Mask:             mask,
@@ -33,12 +34,42 @@ func newRetGlineData(mask, reason string, expireTS, lastModTS, hoursUntilExpire 
 		LastModTS:        lastModTS,
 		HoursUntilExpire: hoursUntilExpire,
 		Reason:           reason,
+		ID:               id,
 	}
+}
+
+// redactMaskHost replaces the host part of a "user@host" mask with a
+// placeholder, keeping the user part intact.
+func redactMaskHost(mask string) string {
+	if i := strings.Index(mask, "@"); i != -1 {
+		return mask[:i+1] + "[hidden]"
+	}
+	return mask
+}
+
+// buildRetGlineDataList builds the JSON response list for a set of gline
+// entries. When redactIP is true (public ID-based lookups), the mask's
+// host/IP part is replaced with a placeholder.
+func buildRetGlineDataList(entries []*glineData, redactIP bool) []*RetGlineData {
+	list := make([]*RetGlineData, 0, len(entries))
+	for _, e := range entries {
+		mask := e.Mask()
+		if redactIP {
+			mask = redactMaskHost(mask)
+		}
+		list = append(list, newRetGlineData(mask, e.reason, e.expireTS, e.lastModTS, e.HoursUntilExpiration(), e.active, e.ID()))
+	}
+	return list
 }
 
 type api_struct struct {
 	Network string `param:"network"`
 	Ip      string `param:"ip"`
+}
+
+type api_struct_id struct {
+	Network string `param:"network"`
+	ID      string `param:"id"`
 }
 
 type api_struct2 struct {
@@ -67,6 +98,7 @@ func Api_init(config Configuration) *echo.Echo {
 	e.Use(middleware.BodyLimit("1K"))
 	e.Use(middleware.Logger())
 	e.GET("/api2/glinelookup/:network/:ip", a.glineLookupApi)
+	e.GET("/api2/glineidlookup/:network/:id", a.glineIDLookupApi)
 	e.GET("/api2/ismyipgline/:network", a.glineLookupOwnIPApi)
 	e.POST("/api2/sendcommand/:network", a.sendCommandApi)
 	e.POST("/api2/remgline/:network", a.removeGlineApi)
@@ -84,6 +116,8 @@ func Api_init(config Configuration) *echo.Echo {
 func (a *ApiData) IsAPIOpen(c echo.Context) bool {
 	switch c.Path() {
 	case "/api2/glinelookup/:network/:ip":
+		return true
+	case "/api2/glineidlookup/:network/:id":
 		return true
 	case "/api2/ismyipgline/:network":
 		return true
@@ -137,6 +171,21 @@ func (a *ApiData) glineLookupApi(c echo.Context) error {
 	return a.glineApi(c, in, err)
 }
 
+func (a *ApiData) glineIDLookupApi(c echo.Context) error {
+	var in api_struct_id
+	if err := c.Bind(&in); err != nil {
+		return c.JSON(http.StatusBadRequest, "bad request")
+	}
+	debugLog("id =", in.ID, ", net = ", in.Network)
+	s := servers.GetServerInfosByNetwork(in.Network)
+	if s == nil {
+		return c.JSON(http.StatusNotFound, "Network not found")
+	}
+	entries, _ := s.CheckGlineByID(in.ID)
+	list := buildRetGlineDataList(entries, true)
+	return c.JSON(http.StatusOK, &list)
+}
+
 func (a *ApiData) glineLookupOwnIPApi(c echo.Context) error {
 	var in api_struct
 	var in2 api_struct2
@@ -160,15 +209,7 @@ func (a *ApiData) glineApi(c echo.Context, in api_struct, err error) error {
 		return c.JSON(http.StatusNotFound, "Network not found")
 	}
 	if glines, exp_glines, err := s.CheckGline(in.Ip, false); err == nil {
-		list = make([]*RetGlineData, 0, len(glines)+len(exp_glines))
-		for _, entry := range glines {
-			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.active)
-			list = append(list, e)
-		}
-		for _, entry := range exp_glines {
-			e := newRetGlineData(entry.mask, entry.reason, entry.expireTS, entry.lastModTS, entry.HoursUntilExpiration(), entry.active)
-			list = append(list, e)
-		}
+		list = buildRetGlineDataList(append(glines, exp_glines...), false)
 	} else {
 		return c.JSON(http.StatusBadRequest, "Invalid IP")
 	}
